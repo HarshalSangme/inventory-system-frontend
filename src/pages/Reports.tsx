@@ -1,8 +1,7 @@
-import FileCopyIcon from '@mui/icons-material/FileCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import { Box, Button, Card, CardContent, Grid, Typography, Chip, CardHeader, Stack } from '@mui/material';
+import { Box, Button, Card, CardContent, Grid, Typography, Chip, Stack } from '@mui/material';
 
 export default function Reports() {
     const reports = [

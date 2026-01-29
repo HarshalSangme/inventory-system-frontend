@@ -8,7 +8,6 @@ import {
     Button,
     Card,
     CardContent,
-    CardHeader,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -24,8 +23,7 @@ import {
     TableHead,
     TableRow,
     TextField,
-    Typography,
-    Stack
+    Typography
 } from '@mui/material';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
 

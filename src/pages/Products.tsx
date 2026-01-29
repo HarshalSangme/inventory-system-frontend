@@ -9,7 +9,6 @@ import {
     Button,
     Card,
     CardContent,
-    CardHeader,
     Dialog,
     DialogTitle,
     DialogContent,
@@ -27,8 +26,7 @@ import {
     TextField,
     Typography,
     Chip,
-    Stack,
-    Alert
+    Stack
 } from '@mui/material';
 import { getProducts, type Product, createProduct, updateProduct, deleteProduct } from '../services/productService';
 
