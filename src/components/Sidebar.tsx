@@ -5,6 +5,7 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
+import logo from '../assets/jot.png';
 import Toolbar from '@mui/material/Toolbar';
 import Divider from '@mui/material/Divider';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
@@ -41,9 +42,19 @@ export default function Sidebar() {
                 '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
             }}
         >
-            <Toolbar sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2 }}>
-                <Box sx={{ width: 40, height: 40, bgcolor: 'primary.main', borderRadius: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold' }}>IMS</Box>
-                <Box component="span" sx={{ fontWeight: 700 }}>Inventory</Box>
+            <Toolbar sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                py: 3,
+                px: 2,
+                minHeight: 120
+            }}>
+                <img src={logo} alt="Logo" style={{ height: 56, marginBottom: 10, marginTop: 4 }} />
+                <Box component="span" sx={{ fontWeight: 700, fontSize: 20, textAlign: 'center', lineHeight: 1.2 }}>
+                    JOT AUTO PARTS
+                </Box>
             </Toolbar>
             <Divider />
             <List>
