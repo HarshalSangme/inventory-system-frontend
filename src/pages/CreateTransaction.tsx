@@ -31,6 +31,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     const [products, setProducts] = useState<Product[]>([]);
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
     const [items, setItems] = useState<TransactionItem[]>([]);
+    const [vatPercent, setVatPercent] = useState<number>(0);
 
     useEffect(() => {
         loadData();
@@ -57,8 +58,13 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const calculateTotal = () => {
+    const calculateSubtotal = () => {
         return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    };
+
+    const calculateTotal = () => {
+        const subtotal = calculateSubtotal();
+        return subtotal + (subtotal * vatPercent / 100);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -72,10 +78,12 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
             return;
         }
 
+
         const transaction: TransactionCreate = {
             partner_id: Number(selectedPartnerId),
             type: type,
-            items: items
+            items: items,
+            vat_percent: vatPercent
         };
 
         try {
@@ -90,7 +98,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} md={6}>
                     <Typography variant="body2" gutterBottom>{type === 'sale' ? 'Customer' : 'Vendor'}</Typography>
                     <Select fullWidth value={selectedPartnerId} onChange={e => setSelectedPartnerId(Number(e.target.value))} displayEmpty required>
                         <MenuItem value="">Select Partner...</MenuItem>
@@ -99,8 +107,18 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                         ))}
                     </Select>
                 </Grid>
-                <Grid item xs={12} md={4} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                    <Typography variant="caption">Total Amount</Typography>
+                <Grid item xs={6} md={3}>
+                    <TextField
+                        label="VAT %"
+                        type="number"
+                        inputProps={{ min: 0, max: 100, step: '0.01' }}
+                        value={vatPercent}
+                        onChange={e => setVatPercent(Number(e.target.value))}
+                        fullWidth
+                    />
+                </Grid>
+                <Grid item xs={6} md={3} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
+                    <Typography variant="caption">Total Amount (incl. VAT)</Typography>
                     <Typography variant="h5" color="primary">₹ {calculateTotal().toFixed(2)}</Typography>
                 </Grid>
             </Grid>

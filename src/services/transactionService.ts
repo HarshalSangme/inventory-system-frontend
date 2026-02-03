@@ -10,6 +10,7 @@ export interface TransactionCreate {
     partner_id: number;
     type: 'purchase' | 'sale' | 'return';
     items: TransactionItem[];
+    vat_percent?: number;
 }
 
 export interface Transaction {
@@ -18,6 +19,7 @@ export interface Transaction {
     type: 'purchase' | 'sale' | 'return';
     partner_id: number;
     total_amount: number;
+    vat_percent?: number;
     items: TransactionItem[]; // Start with basic response, might receive expanded items
 }
 
