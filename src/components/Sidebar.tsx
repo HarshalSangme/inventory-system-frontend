@@ -53,7 +53,7 @@ export default function Sidebar() {
             }}>
                 <img src={logo} alt="Logo" style={{ height: 56, marginBottom: 10, marginTop: 4 }} />
                 <Box component="span" sx={{ fontWeight: 700, fontSize: 20, textAlign: 'center', lineHeight: 1.2 }}>
-                    JOT AUTO PARTS
+                    JOT AUTO PARTS W.L.L
                 </Box>
             </Toolbar>
             <Divider />
