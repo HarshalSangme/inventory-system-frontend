@@ -348,10 +348,10 @@ async function generateInvoicePDF(invoice: any) {
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
   // Phone left
-  const phoneText = '☎ 36341106';
+  const phoneText = '36341106';
   doc.text(phoneText, 24, barY + 18, { align: 'left' });
   // Email right
-  const emailText = '✉ harjinders717@gmail.com';
+  const emailText = 'harjinders717@gmail.com';
   doc.text(emailText, pageWidth - 24, barY + 18, { align: 'right' });
 
   doc.save(`invoice_${invoice.id}.pdf`);
