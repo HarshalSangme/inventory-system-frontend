@@ -171,7 +171,6 @@ async function generateInvoicePDF(invoice: any) {
     'NET AMT',
   ];
   // Proportional column widths to fill CONTENT_WIDTH
-  const colWidths = [40, 0.32, 0.08, 0.13, 0.13, 0.13, 0.21].map(f => Math.round(CONTENT_WIDTH * (typeof f === 'number' && f < 1 ? f : f / CONTENT_WIDTH)));
   // [40, 0.32, 0.08, 0.13, 0.13, 0.13, 0.21] as fractions of CONTENT_WIDTH
   const colWidthsAbs = [40, ...[0.32, 0.08, 0.13, 0.13, 0.13, 0.21].map(f => CONTENT_WIDTH * f)];
 
