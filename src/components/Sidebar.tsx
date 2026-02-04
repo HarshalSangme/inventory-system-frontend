@@ -14,6 +14,7 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import SellIcon from '@mui/icons-material/Sell';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -27,6 +28,7 @@ const items = [
     { icon: <StorefrontIcon />, label: 'Products', path: '/products' },
     { icon: <SellIcon />, label: 'Sales', path: '/sales' },
     { icon: <ShoppingCartIcon />, label: 'Purchases', path: '/purchases' },
+    { icon: <PictureAsPdfIcon />, label: 'Invoices', path: '/invoices' },
     { icon: <BarChartIcon />, label: 'Reports', path: '/reports' },
 ];
 

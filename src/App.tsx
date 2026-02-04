@@ -7,6 +7,7 @@ import Transactions from './pages/Transactions';
 import Reports from './pages/Reports';
 import Login from './pages/Login';
 import RequireAuth from './components/RequireAuth';
+import Invoices from './pages/Invoices';
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
             <Route path="sales" element={<Transactions type="sale" />} />
             <Route path="purchases" element={<Transactions type="purchase" />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="invoices" element={<Invoices />} />
           </Route>
         </Route>
       </Routes>
