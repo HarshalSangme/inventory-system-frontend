@@ -76,7 +76,7 @@ export default function Dashboard() {
                     <StatCard title="Total Customers" value={stats.total_customers.toString()} subtext="Active partners" icon={PeopleIcon} color="#2196f3" trend={1} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Total Revenue" value={`₹${stats.total_sales.toFixed(0)}`} subtext="Lifetime sales" icon={InventoryIcon} color="#4caf50" trend={1} />
+                    <StatCard title="Total Revenue" value={`${stats.total_sales.toFixed(0)}`} subtext="Lifetime sales" icon={InventoryIcon} color="#4caf50" trend={1} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatCard title="Total Products" value={stats.total_products.toString()} subtext="In inventory" icon={BarChart3} color="#9c27b0" trend={0} />
