@@ -120,7 +120,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                         <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500 }}>#{transaction.id}</TableCell>
                                         <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                         <TableCell>{transaction.partner_id}</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>₹ {transaction.total_amount.toFixed(2)}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
                                         <TableCell align="center">
                                             <IconButton size="small" color="primary"><VisibilityIcon fontSize="small" /></IconButton>
                                         </TableCell>
