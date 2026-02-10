@@ -28,7 +28,7 @@ import {
     Chip,
     Stack
 } from '@mui/material';
-import { getProducts, type Product, createProduct, updateProduct, deleteProduct } from '../services/productService';
+import { getProducts, type Product, createProduct, updateProduct, deleteProduct, importProducts } from '../services/productService';
 
 export default function Products() {
     const [products, setProducts] = useState<Product[]>([]);
@@ -151,30 +151,15 @@ export default function Products() {
                         onChange={async (e) => {
                             if (e.target.files && e.target.files[0]) {
                                 const file = e.target.files[0];
-                                const formData = new FormData();
-                                formData.append("file", file);
 
                                 try {
-                                    const token = localStorage.getItem('token');
-                                    const response = await fetch('http://localhost:8000/import-products/', {
-                                        method: 'POST',
-                                        headers: {
-                                            'Authorization': `Bearer ${token}`
-                                        },
-                                        body: formData
-                                    });
-
-                                    if (response.ok) {
-                                        const result = await response.json();
-                                        alert(result.message);
-                                        loadProducts();
-                                    } else {
-                                        const error = await response.json();
-                                        alert('Import failed: ' + error.detail);
-                                    }
-                                } catch (err) {
+                                    const result = await importProducts(file);
+                                    alert(result.message);
+                                    loadProducts();
+                                } catch (err: any) {
                                     console.error("Upload error", err);
-                                    alert("Failed to upload file");
+                                    const errorMessage = err.response?.data?.detail || 'Failed to upload file';
+                                    alert('Import failed: ' + errorMessage);
                                 }
                                 // Reset input
                                 e.target.value = '';
