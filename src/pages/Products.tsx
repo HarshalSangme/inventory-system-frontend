@@ -222,7 +222,7 @@ export default function Products() {
                                     <TableRow key={product.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                         <TableCell sx={{ fontWeight: 500 }}>{product.name}</TableCell>
                                         <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{product.sku}</Typography></TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 600, color: '#2e7d32' }}>₹{product.price}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 600, color: '#2e7d32' }}>{product.price}</TableCell>
                                         <TableCell align="right">{product.stock_quantity}</TableCell>
                                         <TableCell>
                                             <Chip

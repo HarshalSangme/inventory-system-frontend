@@ -119,7 +119,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 </Grid>
                 <Grid item xs={6} md={3} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
                     <Typography variant="caption">Total Amount (incl. VAT)</Typography>
-                    <Typography variant="h5" color="primary">₹ {calculateTotal().toFixed(2)}</Typography>
+                    <Typography variant="h5" color="primary">{calculateTotal().toFixed(2)}</Typography>
                 </Grid>
             </Grid>
 
@@ -159,7 +159,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                             <TableCell>
                                 <TextField type="number" inputProps={{ min: 0, step: '0.01' }} value={item.price} onChange={e => updateItem(index, 'price', Number(e.target.value))} size="small" fullWidth />
                             </TableCell>
-                            <TableCell align="right">₹ {(item.quantity * item.price).toFixed(2)}</TableCell>
+                            <TableCell align="right">{(item.quantity * item.price).toFixed(2)}</TableCell>
                             <TableCell>
                                 <IconButton onClick={() => removeItem(index)} color="error">
                                     <DeleteIcon />

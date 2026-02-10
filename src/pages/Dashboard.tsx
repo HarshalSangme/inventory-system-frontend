@@ -53,8 +53,8 @@ export default function Dashboard() {
     if (!stats) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="error">Error loading dashboard.</Typography></Box>;
 
     // Prepare chart data with realistic values if empty
-    const chartData = stats.top_products.length > 0 
-        ? stats.top_products 
+    const chartData = stats.top_products.length > 0
+        ? stats.top_products
         : [{ name: 'No Data', value: 0 }];
 
     const pieData = [
@@ -152,7 +152,7 @@ export default function Dashboard() {
                                         {stats.recent_sales.map((sale, idx) => (
                                             <tr key={sale.id} style={{ borderBottom: idx < stats.recent_sales.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
                                                 <td style={{ padding: '12px 16px' }}>{new Date(sale.date).toLocaleDateString()}</td>
-                                                <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2e7d32' }}>₹ {sale.total_amount.toFixed(2)}</td>
+                                                <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2e7d32' }}>{sale.total_amount.toFixed(2)}</td>
                                                 <td style={{ padding: '12px 16px' }}>
                                                     <span style={{ display: 'inline-block', padding: '4px 12px', backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>Completed</span>
                                                 </td>
