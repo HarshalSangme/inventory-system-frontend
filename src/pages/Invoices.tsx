@@ -102,7 +102,6 @@ async function generateInvoicePDF(invoice: any) {
   // Draw table structure
   const rowHeight = 17;
   const labelColW = 100;
-  const valueColW = metaBoxW - labelColW;
 
   // Outer border
   doc.setLineWidth(1);
