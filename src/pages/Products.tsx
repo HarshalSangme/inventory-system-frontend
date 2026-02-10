@@ -141,9 +141,55 @@ export default function Products() {
                     <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Products</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your inventory items</Typography>
                 </Box>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large">
-                    Add Product
-                </Button>
+                <Box>
+                    <input
+                        accept=".xlsx"
+                        style={{ display: 'none' }}
+                        id="raised-button-file"
+                        multiple={false}
+                        type="file"
+                        onChange={async (e) => {
+                            if (e.target.files && e.target.files[0]) {
+                                const file = e.target.files[0];
+                                const formData = new FormData();
+                                formData.append("file", file);
+
+                                try {
+                                    const token = localStorage.getItem('token');
+                                    const response = await fetch('http://localhost:8000/import-products/', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Authorization': `Bearer ${token}`
+                                        },
+                                        body: formData
+                                    });
+
+                                    if (response.ok) {
+                                        const result = await response.json();
+                                        alert(result.message);
+                                        loadProducts();
+                                    } else {
+                                        const error = await response.json();
+                                        alert('Import failed: ' + error.detail);
+                                    }
+                                } catch (err) {
+                                    console.error("Upload error", err);
+                                    alert("Failed to upload file");
+                                }
+                                // Reset input
+                                e.target.value = '';
+                            }
+                        }}
+                    />
+                    <label htmlFor="raised-button-file">
+                        <Button variant="outlined" component="span" sx={{ mr: 2 }}>
+                            Import Data
+                        </Button>
+                    </label>
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large">
+                        Add Product
+                    </Button>
+                </Box>
             </Box>
 
             {/* Search & Filter */}
