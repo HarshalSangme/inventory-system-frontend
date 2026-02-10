@@ -30,8 +30,6 @@ function loadImageAsync(src: string): Promise<HTMLImageElement> {
   });
 }
 
-
-
 async function generateInvoicePDF(invoice: any) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -39,7 +37,6 @@ async function generateInvoicePDF(invoice: any) {
 
   const logoUrl = window.location.origin + '/jot.png';
   const letterUrl = window.location.origin + '/Jot_Letter_Head.jpg';
-  // const stampUrl = window.location.origin + '/jot_stamp.png';
 
   // Load logo and letterhead
   let logoImg, letterImg;
@@ -57,8 +54,7 @@ async function generateInvoicePDF(invoice: any) {
   const MARGIN_TOP = 20;
   const CONTENT_WIDTH = pageWidth - 2 * MARGIN_X;
 
-  // Footer space reservation (Brand Image ~60pt + Contact Bar ~40pt + Signatures ~80pt + Margins)
-  // We need to ensure we don't print rows into this area relative to the bottom
+  // Footer space reservation
   const FOOTER_RESERVED_HEIGHT = 180;
 
   const formatDate = (d: any) => {
@@ -89,25 +85,71 @@ async function generateInvoicePDF(invoice: any) {
 
   doc.addImage(letterImg, 'JPEG', LETTER_X, BASELINE_Y + 2, LETTER_W, LETTER_H);
 
-  // ---- META BOX ----
-  const metaBoxW = 175;
+  // ---- COMPANY ADDRESS (Changed to Times New Roman, smaller size) ----
+  doc.setFontSize(6.5);
+  doc.setFont('times', 'normal');
+  const addressY = BASELINE_Y + LETTER_H + 4;
+  doc.text('Shop 128, Road 6, Block 604, Cr number 174260-1', pageWidth / 2, addressY, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); // Reset to helvetica for rest of document
+
+  // ---- META BOX (Updated layout to match draft) ----
+  const metaBoxW = 240;
   const metaBoxH = 68;
   const metaX = pageWidth - metaBoxW - MARGIN_X;
 
   doc.setFontSize(9);
+
+  // Draw table structure
+  const rowHeight = 17;
+  const labelColW = 100;
+  const valueColW = metaBoxW - labelColW;
+
+  // Outer border
+  doc.setLineWidth(1);
   doc.rect(metaX, HEADER_Y, metaBoxW, metaBoxH);
 
-  doc.text('Invoice Date:', metaX + 6, HEADER_Y + 16);
-  doc.text(formatDate(invoice.date), metaX + 95, HEADER_Y + 16);
+  // Draw vertical line between columns
+  doc.line(metaX + labelColW, HEADER_Y, metaX + labelColW, HEADER_Y + metaBoxH);
 
-  doc.text('Invoice No:', metaX + 6, HEADER_Y + 32);
-  doc.text(String(invoice.invoice_no || invoice.id || ''), metaX + 95, HEADER_Y + 32);
+  // All rows have dark background for label column only
+  doc.setFillColor(95, 95, 95);
+  doc.rect(metaX, HEADER_Y, labelColW, metaBoxH, 'F');
 
-  doc.text('Payment Terms:', metaX + 6, HEADER_Y + 48);
-  doc.text('CREDIT', metaX + 95, HEADER_Y + 48);
+  // Row 1: Invoice Date
+  doc.setTextColor(255);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Invoice Date:', metaX + 6, HEADER_Y + 12);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
+  doc.text(formatDate(invoice.date), metaX + labelColW + 6, HEADER_Y + 12);
+  doc.line(metaX, HEADER_Y + rowHeight, metaX + metaBoxW, HEADER_Y + rowHeight);
 
-  doc.text('Due Date:', metaX + 6, HEADER_Y + 64);
-  doc.text(String(invoice.due_date || ''), metaX + 95, HEADER_Y + 64);
+  // Row 2: Invoice No
+  doc.setTextColor(255);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Invoice No:', metaX + 6, HEADER_Y + rowHeight + 12);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
+  doc.text(String(invoice.invoice_no || invoice.id || ''), metaX + labelColW + 6, HEADER_Y + rowHeight + 12);
+  doc.line(metaX, HEADER_Y + 2 * rowHeight, metaX + metaBoxW, HEADER_Y + 2 * rowHeight);
+
+  // Row 3: Payment Terms
+  doc.setTextColor(255);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Payment Terms:', metaX + 6, HEADER_Y + 2 * rowHeight + 12);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
+  doc.text('CREDIT', metaX + labelColW + 6, HEADER_Y + 2 * rowHeight + 12);
+  doc.line(metaX, HEADER_Y + 3 * rowHeight, metaX + metaBoxW, HEADER_Y + 3 * rowHeight);
+
+  // Row 4: Due Date
+  doc.setTextColor(255);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Due Date:', metaX + 6, HEADER_Y + 3 * rowHeight + 12);
+  doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
+  const dueDate = invoice.due_date ? formatDate(invoice.due_date) : '';
+  doc.text(dueDate, metaX + labelColW + 6, HEADER_Y + 3 * rowHeight + 12);
 
   // ---- INVOICE TITLE BAR ----
   const BAR_W = 160;
@@ -134,34 +176,48 @@ async function generateInvoicePDF(invoice: any) {
   doc.text(`ADDRESS #`, MARGIN_X + 12, y + 34);
   doc.text(`MOBILE NO #`, MARGIN_X + 12, y + 48);
   doc.setFont('helvetica', 'normal');
-  doc.text(String(invoice.customer_name || ''), MARGIN_X + 120, y + 20);
-  doc.text(String(invoice.address || ''), MARGIN_X + 120, y + 34);
-  doc.text(String(invoice.mobile || ''), MARGIN_X + 120, y + 48);
+  // Use partner data for customer information
+  const customerName = invoice.partner?.name || invoice.customer_name || '';
+  const customerAddress = invoice.partner?.address || invoice.address || '';
+  const customerMobile = invoice.partner?.phone || invoice.mobile || '';
+  doc.text(String(customerName), MARGIN_X + 120, y + 20);
+  doc.text(String(customerAddress), MARGIN_X + 120, y + 34);
+  doc.text(String(customerMobile), MARGIN_X + 120, y + 48);
 
   y += 70; // Move past customer box
 
   /* ================= TABLE ================= */
-  const headers = ['SR.NO', 'ITEM NAME', 'QTY', 'PRICE', 'DISCOUNT', 'VAT', 'NET AMT'];
+  // Headers: SR.NO, ITEM CODE, ITEM NAME, QTY, PRICE, DISCOUNT, AMT, %, VAT, NET AMT
+  const headers = ['SR.NO', 'ITEM CODE', 'ITEM NAME', 'QTY', 'PRICE', 'DISCOUNT', 'AMT', '%', 'VAT', 'NET AMT'];
 
-  // Adjusted column widths to fit properly
-  const SR_NO_WIDTH = 40;
-  const AVAILABLE_WIDTH = CONTENT_WIDTH - SR_NO_WIDTH;
-
-  // Proportional widths for remaining columns
-  // [0.32, 0.08, 0.13, 0.13, 0.13, 0.21] -> Sum = 1.0
-  const colWidthsAbs = [SR_NO_WIDTH, ...[0.32, 0.08, 0.13, 0.13, 0.13, 0.21].map(f => AVAILABLE_WIDTH * f)];
+  // Adjusted column widths to accommodate new columns
+  const colWidthsAbs = [
+    30,   // SR.NO
+    55,   // ITEM CODE
+    135,  // ITEM NAME
+    30,   // QTY
+    45,   // PRICE
+    50,   // DISCOUNT
+    45,   // AMT
+    25,   // %
+    45,   // VAT
+    80,   // NET AMT
+  ];
 
   // Helper to draw table header
   const drawTableHeader = (currentY: number) => {
     doc.setFillColor(0, 0, 0);
-    doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, 22, 'F');
+    doc.setLineWidth(1);
+    doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, 22, 'FD'); // Fill and Draw
     doc.setTextColor(255);
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
 
     let x = MARGIN_X;
     headers.forEach((h, i) => {
-      doc.text(h, x + 4, currentY + 15);
+      // Center-align headers
+      const colCenter = x + colWidthsAbs[i] / 2;
+      doc.text(h, colCenter, currentY + 14, { align: 'center' });
       x += colWidthsAbs[i];
     });
 
@@ -170,6 +226,7 @@ async function generateInvoicePDF(invoice: any) {
     return currentY + 22;
   };
 
+  doc.setLineWidth(1);
   y = drawTableHeader(y);
 
   const TABLE_ROW_HEIGHT = 20;
@@ -180,30 +237,11 @@ async function generateInvoicePDF(invoice: any) {
 
   (invoice.items || []).forEach((item: any, idx: number) => {
     // Check for page break
-    if (y + TABLE_ROW_HEIGHT > pageHeight - 50) {
+    if (y + TABLE_ROW_HEIGHT > pageHeight - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
       y = MARGIN_TOP + 20;
       y = drawTableHeader(y);
     }
-
-    // Draw row background
-    // doc.rect(MARGIN_X, y, CONTENT_WIDTH, TABLE_ROW_HEIGHT); 
-
-    // Draw vertical lines
-    let cx = MARGIN_X;
-    for (let i = 0; i < colWidthsAbs.length; i++) {
-      cx += colWidthsAbs[i];
-    }
-    // Outer border for the row
-    doc.rect(MARGIN_X, y, CONTENT_WIDTH, TABLE_ROW_HEIGHT);
-
-    // Draw vertical lines explicitly
-    cx = MARGIN_X;
-    for (let i = 1; i < colWidthsAbs.length; i++) {
-      cx += colWidthsAbs[i - 1];
-      doc.line(cx, y, cx, y + TABLE_ROW_HEIGHT);
-    }
-
 
     const price = Number(item.price || 0);
     const qty = Number(item.quantity || 0);
@@ -212,52 +250,83 @@ async function generateInvoicePDF(invoice: any) {
 
     const row = [
       String(idx + 1),
+      String(item.product?.sku || item.sku || '-'),
       String(item.product?.name || item.name || ''),
       String(item.quantity || ''),
       price.toFixed(3),
-      String(item.discount || '-'),
-      String(item.vat || '-'), // Per item VAT not currently in schema
+      String(item.discount || ''),
+      '', // AMT column (empty for now)
+      '', // % column (empty for now)
+      String(item.vat || ''),
       net.toFixed(3),
     ];
 
-    cx = MARGIN_X;
-    row.forEach((cell, i) => {
-      const align = i === 1 ? 'left' : 'right';
-      // Adjust text position
-      let textX;
-      if (align === 'left') {
-        textX = cx + 4; // Left edge + padding
-      } else {
-        textX = cx + colWidthsAbs[i] - 4; // Right edge - padding
-      }
+    // Draw ONLY vertical lines for this row (no horizontal lines)
+    let cx = MARGIN_X;
 
-      doc.text(cell, textX, y + 14, { align });
+    doc.setLineWidth(0.5);
+
+    // Left border
+    doc.line(MARGIN_X, y, MARGIN_X, y + TABLE_ROW_HEIGHT);
+
+    // Column separators
+    for (let i = 0; i < colWidthsAbs.length; i++) {
+      cx += colWidthsAbs[i];
+      doc.line(cx, y, cx, y + TABLE_ROW_HEIGHT);
+    }
+
+    // Add text content with proper wrapping for ITEM NAME
+    cx = MARGIN_X;
+    doc.setFontSize(8);
+
+    row.forEach((cell, i) => {
+      if (i === 2) {
+        // ITEM NAME - wrap text if too long
+        const maxWidth = colWidthsAbs[i] - 8; // padding
+        const lines = doc.splitTextToSize(cell, maxWidth);
+        doc.text(lines[0] || '', cx + 4, y + 13, { align: 'left' });
+      } else if (i === 1) {
+        // ITEM CODE - left aligned
+        doc.text(cell, cx + 4, y + 13, { align: 'left' });
+      } else if (i === 0) {
+        // SR.NO - center aligned
+        const colCenter = cx + colWidthsAbs[i] / 2;
+        doc.text(cell, colCenter, y + 13, { align: 'center' });
+      } else {
+        // Other columns - right aligned
+        doc.text(cell, cx + colWidthsAbs[i] - 4, y + 13, { align: 'right' });
+      }
       cx += colWidthsAbs[i];
     });
 
     y += TABLE_ROW_HEIGHT;
   });
 
+  // Draw bottom border of the table
+  doc.line(MARGIN_X, y, MARGIN_X + CONTENT_WIDTH, y);
+
   // Calculate Final Totals
   const vatPercent = invoice.vat_percent || 0;
   totalVat = totalGross * (vatPercent / 100);
-  const finalNet = totalGross + totalVat; // Or invoice.total_amount from backend
+  const finalNet = totalGross + totalVat;
 
   /* ================= TOTALS & BANK ================= */
-  const TOTALS_HEIGHT = 120;
-  const BANK_HEIGHT = 80;
+  const TOTALS_HEIGHT = 140;
+  const BANK_HEIGHT = 100;
 
   if (y + TOTALS_HEIGHT + BANK_HEIGHT > pageHeight - FOOTER_RESERVED_HEIGHT) {
     doc.addPage();
     y = MARGIN_TOP + 20;
   }
 
-  y += 10;
-  doc.setFontSize(9);
-  doc.text('* Items sold will not be taken back or returned.', MARGIN_X, y + 12);
+  y += 8;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.text('*Items sold will not be taken back or returned.', MARGIN_X, y + 10);
+  doc.setFont('helvetica', 'normal');
 
   let totalsX = MARGIN_X + CONTENT_WIDTH - 200;
-  let totalsY = y + 18;
+  let totalsY = y + 20;
 
   const totals = [
     ['GROSS AMT', totalGross.toFixed(3)],
@@ -266,39 +335,45 @@ async function generateInvoicePDF(invoice: any) {
     ['Balance C/F', invoice.balance_cf || '-'],
   ];
 
+  doc.setFontSize(9);
+  doc.setLineWidth(1);
+
   totals.forEach(([label, value]) => {
     doc.rect(totalsX, totalsY, 200, 18);
-    doc.text(String(label), totalsX + 6, totalsY + 13);
-    doc.text(String(value || ''), totalsX + 190, totalsY + 13, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(String(label), totalsX + 6, totalsY + 12);
+    doc.text(String(value || ''), totalsX + 190, totalsY + 12, { align: 'right' });
     totalsY += 18;
   });
 
+  // NET AMT row with dark background
   doc.setFillColor(95, 95, 95);
   doc.setTextColor(255);
-  doc.rect(totalsX, totalsY, 200, 20, 'F');
+  doc.rect(totalsX, totalsY, 200, 20, 'FD');
+  doc.setFont('helvetica', 'bold');
   doc.text('NET AMT BHD', totalsX + 6, totalsY + 14);
 
-  // Use calculated finalNet or fallback to invoice.total_amount
   const displayTotal = (invoice.total_amount !== undefined && invoice.total_amount !== null)
     ? Number(invoice.total_amount).toFixed(3)
     : finalNet.toFixed(3);
 
   doc.text(displayTotal, totalsX + 190, totalsY + 14, { align: 'right' });
   doc.setTextColor(0);
+  doc.setFont('helvetica', 'normal');
 
-  // Update Y to be below totals
-  y = totalsY + 20;
+  y = totalsY + 22;
 
-  /* ================= BANK ================= */
-  y += 14;
+  /* ================= BANK DETAILS ================= */
+  y += 10;
   const BANK_BOX_W = 380;
   const BANK_BOX_H = 70;
+  doc.setLineWidth(1);
   doc.roundedRect(MARGIN_X, y, BANK_BOX_W, BANK_BOX_H, 8, 8);
 
-  doc.setFontSize(8.2);
+  doc.setFontSize(8.5);
   let bankY = y + 16;
   doc.setFont('helvetica', 'bold');
-  doc.text('BANK TRANSFER DETAILS', MARGIN_X + 8, bankY);
+  doc.text('BANK TRASNFER DETAILS', MARGIN_X + 8, bankY);
   bankY += 13;
   doc.text(BANK_DETAILS.name, MARGIN_X + 8, bankY);
   bankY += 13;
@@ -307,44 +382,36 @@ async function generateInvoicePDF(invoice: any) {
   bankY += 13;
   doc.text(`IBAN ${BANK_DETAILS.iban}`, MARGIN_X + 8, bankY);
 
-  y += BANK_BOX_H + 20;
+  y += BANK_BOX_H + 18;
 
-  doc.setFontSize(9.2);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
   doc.text('Thank You for Your Business!', MARGIN_X, y);
   doc.setFont('helvetica', 'normal');
 
   /* ================= FOOTER (ALWAYS AT BOTTOM OF LAST PAGE) ================= */
-  // Image, Signature, Contact Bar
-
-  const barHeight = 32;
+  const barHeight = 28;
   const orangeHeight = 6;
   const contactBarTotal = barHeight + orangeHeight + 10;
 
   const shopFooterImgUrl = window.location.origin + '/shop_footer_board.jpg';
   let shopFooterH = 0;
   let shopFooterW = pageWidth - 2 * MARGIN_X;
-
-  // Determine Y position for footer elements
-  // They are anchored to bottom
   let shopFooterY = 0;
+
   try {
     const shopFooterImg = await loadImageAsync(shopFooterImgUrl);
     shopFooterH = (shopFooterImg.naturalHeight / shopFooterImg.naturalWidth) * shopFooterW;
-    shopFooterY = pageHeight - contactBarTotal - shopFooterH;
+    shopFooterY = pageHeight - contactBarTotal - shopFooterH - 10;
 
-    // Check if we need ANOTHER page for the footer image if current Y content overlaps
-    // current 'y' is below "Thank you"
-    if (y > shopFooterY - 60) { // Buffer for signature
+    if (y > shopFooterY - 60) {
       doc.addPage();
-      // new page, reset positions
-      shopFooterY = pageHeight - contactBarTotal - shopFooterH;
+      shopFooterY = pageHeight - contactBarTotal - shopFooterH - 10;
     }
 
     doc.addImage(shopFooterImg, 'JPEG', MARGIN_X, shopFooterY, shopFooterW, shopFooterH);
   } catch (e) {
     console.warn('Shop footer image not loaded:', e);
-    // Fallback if image fails
     shopFooterY = pageHeight - contactBarTotal - 60;
     if (y > shopFooterY - 60) {
       doc.addPage();
@@ -353,39 +420,65 @@ async function generateInvoicePDF(invoice: any) {
   }
 
   // Signature Row (Above Shop Footer Image)
-  let sigRowY = shopFooterY - 40;
-  doc.setFontSize(9);
+  let sigRowY = shopFooterY - 35;
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.text('Authorized Signatory/STAMP', MARGIN_X, sigRowY);
+
   doc.setFont('helvetica', 'bold');
-  doc.text(
-    `Sales Person # ${invoice.sales_person || 'N/A'}   Date   Time`,
-    pageWidth / 2,
-    sigRowY,
-    { align: 'center' }
-  );
+  const salesPerson = invoice.sales_person || 'Mamun Hussain';
+  doc.text(`Sales Person # ${salesPerson}`, pageWidth / 2 - 40, sigRowY, { align: 'left' });
+  doc.text('Date', pageWidth / 2 + 50, sigRowY);
+  doc.text('Time', pageWidth / 2 + 90, sigRowY);
+
   doc.setFont('helvetica', 'normal');
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-GB');
-  doc.text(dateStr, pageWidth / 2, sigRowY + 15, { align: 'center' });
+  doc.text(dateStr, pageWidth / 2 + 50, sigRowY + 14);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Receiver Signature', pageWidth - MARGIN_X, sigRowY, { align: 'right' });
   doc.setFont('helvetica', 'normal');
 
-  // Contact Footer Bar (Very Bottom)
-  const barY = pageHeight - barHeight - orangeHeight - 10;
+  // Contact Footer Bar (Very Bottom) - WITH VISIBLE ICONS matching image 3
+  const barY = pageHeight - barHeight - orangeHeight - 8;
+
   // Black bar
   doc.setFillColor(30, 30, 30);
   doc.rect(0, barY, pageWidth, barHeight, 'F');
-  // Orange line
+
+  // Orange stripe
   doc.setFillColor(217, 108, 0);
   doc.rect(0, barY + barHeight, pageWidth, orangeHeight, 'F');
 
+  // Draw phone icons on the left
+  doc.setFillColor(217, 108, 0);
+
+  // First phone icon (circle with handset shape)
+  doc.circle(20, barY + 14, 8, 'F');
+
+  // Second WhatsApp icon
+  doc.circle(42, barY + 14, 8, 'F');
+
+  // Phone number text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text('36341106', 24, barY + 18, { align: 'left' });
+  doc.text('+973 36341106', 56, barY + 18);
+
+  // Email section on the right
+  // Draw orange flag/envelope icon
+  doc.setFillColor(217, 108, 0);
+  const emailIconX = pageWidth - 200;
+  // Triangle pointing right (flag shape)
+  doc.triangle(
+    emailIconX, barY + 14,
+    emailIconX - 8, barY + 10,
+    emailIconX - 8, barY + 18,
+    'F'
+  );
+
+  doc.setTextColor(255, 255, 255);
   doc.text('harjinders717@gmail.com', pageWidth - 24, barY + 18, { align: 'right' });
 
   doc.save(`invoice_${invoice.id}.pdf`);
