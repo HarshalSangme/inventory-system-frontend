@@ -37,13 +37,19 @@ async function generateInvoicePDF(invoice: any) {
 
   const logoUrl = window.location.origin + '/jot.png';
   const letterUrl = window.location.origin + '/Jot_Letter_Head.jpg';
+  const phoneUrl = window.location.origin + '/phone.png';
+  const whatsappUrl = window.location.origin + '/whatsapp.png';
+  const mailUrl = window.location.origin + '/mail.png';
 
   // Load logo and letterhead
-  let logoImg, letterImg;
+  let logoImg, letterImg, phoneImg, whatsappImg, mailImg;
   try {
-    [logoImg, letterImg] = await Promise.all([
+    [logoImg, letterImg, phoneImg, whatsappImg, mailImg] = await Promise.all([
       loadImageAsync(logoUrl),
       loadImageAsync(letterUrl),
+      loadImageAsync(phoneUrl),
+      loadImageAsync(whatsappUrl),
+      loadImageAsync(mailUrl),
     ]);
   } catch (e) {
     alert('Failed to load images for PDF.');
@@ -451,34 +457,26 @@ async function generateInvoicePDF(invoice: any) {
   doc.rect(0, barY + barHeight, pageWidth, orangeHeight, 'F');
 
   // Draw phone icons on the left
-  doc.setFillColor(217, 108, 0);
+  const iconSize = 28;
+  const iconY = barY + (barHeight - iconSize) / 2;
 
-  // First phone icon (circle with handset shape)
-  doc.circle(20, barY + 14, 8, 'F');
+  // First phone icon
+  doc.addImage(phoneImg, 'PNG', 18, iconY, iconSize, iconSize);
 
   // Second WhatsApp icon
-  doc.circle(42, barY + 14, 8, 'F');
+  doc.addImage(whatsappImg, 'PNG', 48, iconY, iconSize, iconSize);
 
   // Phone number text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text('+973 36341106', 56, barY + 18);
+  doc.text('+973 36341106', 78, barY + 19);
 
   // Email section on the right
-  // Draw orange flag/envelope icon
-  doc.setFillColor(217, 108, 0);
-  const emailIconX = pageWidth - 200;
-  // Triangle pointing right (flag shape)
-  doc.triangle(
-    emailIconX, barY + 14,
-    emailIconX - 8, barY + 10,
-    emailIconX - 8, barY + 18,
-    'F'
-  );
+  const emailIconX = pageWidth - 190;
+  doc.addImage(mailImg, 'PNG', emailIconX, iconY, iconSize, iconSize);
 
-  doc.setTextColor(255, 255, 255);
-  doc.text('harjinders717@gmail.com', pageWidth - 24, barY + 18, { align: 'right' });
+  doc.text('harjinders717@gmail.com', pageWidth - 24, barY + 19, { align: 'right' });
 
   doc.save(`invoice_${invoice.id}.pdf`);
 }
