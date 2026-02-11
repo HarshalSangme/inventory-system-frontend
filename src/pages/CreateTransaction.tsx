@@ -14,7 +14,9 @@ import {
     TableHead,
     TableRow,
     TextField,
-    Typography
+    Typography,
+    Snackbar,
+    Alert
 } from '@mui/material';
 import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
@@ -32,6 +34,8 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
     const [items, setItems] = useState<TransactionItem[]>([]);
     const [vatPercent, setVatPercent] = useState<number>(0);
+    const [snackbarOpen, setSnackbarOpen] = useState(false);
+    const [snackbarMessage, setSnackbarMessage] = useState('');
 
     useEffect(() => {
         loadData();
@@ -50,8 +54,32 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
         const newItems = [...items];
+
+        if (field === 'quantity' && type === 'sale') {
+            const currentItem = newItems[index];
+            const product = products.find(p => p.id === currentItem.product_id);
+
+            if (product) {
+                const otherRowsUsage = items.reduce((sum, item, i) => {
+                    return (i !== index && item.product_id === currentItem.product_id) ? sum + item.quantity : sum;
+                }, 0);
+
+                const availableStock = product.stock_quantity - otherRowsUsage;
+
+                if (value > availableStock) {
+                    setSnackbarMessage(`Cannot add ${value}. Only ${availableStock} remaining for this product.`);
+                    setSnackbarOpen(true);
+                    return;
+                }
+            }
+        }
+
         newItems[index] = { ...newItems[index], [field]: value };
         setItems(newItems);
+    };
+
+    const handleCloseSnackbar = () => {
+        setSnackbarOpen(false);
     };
 
     const removeItem = (index: number) => {
@@ -127,46 +155,81 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 <TableHead>
                     <TableRow>
                         <TableCell>Product</TableCell>
-                        <TableCell sx={{ width: 120 }}>Qty</TableCell>
-                        <TableCell sx={{ width: 160 }}>Price</TableCell>
-                        <TableCell sx={{ width: 160 }}>Total</TableCell>
+                        <TableCell align="right" sx={{ width: 120 }}>Selling Qty</TableCell>
+                        <TableCell align="right" sx={{ width: 160 }}>Price</TableCell>
+                        <TableCell align="right" sx={{ width: 160 }}>Total</TableCell>
                         <TableCell sx={{ width: 64 }}></TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {items.map((item, index) => (
-                        <TableRow key={index}>
-                            <TableCell>
-                                <Select fullWidth value={item.product_id} onChange={e => {
-                                    const pid = Number(e.target.value);
-                                    const prod = products.find(p => p.id === pid);
-                                    const newItems = [...items];
-                                    newItems[index] = {
-                                        ...newItems[index],
-                                        product_id: pid,
-                                        price: type === 'sale' ? (prod?.price || 0) : newItems[index].price
-                                    };
-                                    setItems(newItems);
-                                }}>
-                                    {products.map(p => (
-                                        <MenuItem key={p.id} value={p.id}>{p.name} (Stock: {p.stock_quantity})</MenuItem>
-                                    ))}
-                                </Select>
-                            </TableCell>
-                            <TableCell>
-                                <TextField type="number" inputProps={{ min: 1 }} value={item.quantity} onChange={e => updateItem(index, 'quantity', Number(e.target.value))} size="small" fullWidth />
-                            </TableCell>
-                            <TableCell>
-                                <TextField type="number" inputProps={{ min: 0, step: '0.01' }} value={item.price} onChange={e => updateItem(index, 'price', Number(e.target.value))} size="small" fullWidth />
-                            </TableCell>
-                            <TableCell align="right">{(item.quantity * item.price).toFixed(2)}</TableCell>
-                            <TableCell>
-                                <IconButton onClick={() => removeItem(index)} color="error">
-                                    <DeleteIcon />
-                                </IconButton>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                    {items.map((item, index) => {
+                        const selectedProduct = products.find(p => p.id === item.product_id);
+                        return (
+                            <TableRow key={index}>
+                                <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Select fullWidth value={item.product_id} onChange={e => {
+                                            const pid = Number(e.target.value);
+                                            const prod = products.find(p => p.id === pid);
+                                            const newItems = [...items];
+                                            newItems[index] = {
+                                                ...newItems[index],
+                                                product_id: pid,
+                                                price: type === 'sale' ? (prod?.price || 0) : newItems[index].price,
+                                                quantity: 1
+                                            };
+                                            setItems(newItems);
+                                        }} sx={{ flexGrow: 1 }}>
+                                            {products.map(p => {
+                                                const metadataAllocated = items.reduce((sum, i, idx) => {
+                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
+                                                }, 0);
+                                                const remaining = p.stock_quantity - metadataAllocated;
+                                                const isDisabled = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
+
+                                                return (
+                                                    <MenuItem key={p.id} value={p.id} disabled={isDisabled}>
+                                                        {p.name} {isDisabled ? '(Out of Stock)' : ''}
+                                                    </MenuItem>
+                                                )
+                                            })}
+                                        </Select>
+                                        {selectedProduct && type === 'sale' && (
+                                            <Typography variant="body2" color="success.main" sx={{ whiteSpace: 'nowrap', minWidth: '150px' }}>
+                                                Available Stock: {selectedProduct.stock_quantity}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                </TableCell>
+                                <TableCell align="right">
+                                    <TextField
+                                        type="number"
+                                        inputProps={{ min: 1, style: { textAlign: 'right' } }}
+                                        value={item.quantity}
+                                        onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
+                                        size="small"
+                                        fullWidth
+                                    />
+                                </TableCell>
+                                <TableCell align="right">
+                                    <TextField
+                                        type="number"
+                                        inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
+                                        value={item.price}
+                                        onChange={e => updateItem(index, 'price', Number(e.target.value))}
+                                        size="small"
+                                        fullWidth
+                                    />
+                                </TableCell>
+                                <TableCell align="right">{(item.quantity * item.price).toFixed(2)}</TableCell>
+                                <TableCell>
+                                    <IconButton onClick={() => removeItem(index)} color="error">
+                                        <DeleteIcon />
+                                    </IconButton>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
                 </TableBody>
             </Table>
 
@@ -178,7 +241,11 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 <Button onClick={onClose}>Cancel</Button>
                 <Button type="submit" variant="contained">Complete {type === 'sale' ? 'Sale' : 'Purchase'}</Button>
             </Box>
+            <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+                <Alert onClose={handleCloseSnackbar} severity="warning" sx={{ width: '100%' }}>
+                    {snackbarMessage}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }
-
