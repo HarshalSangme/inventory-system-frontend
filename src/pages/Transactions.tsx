@@ -21,7 +21,8 @@ import {
     TableRow,
     TextField,
     Typography,
-    Grid
+    Grid,
+    CircularProgress
 } from '@mui/material';
 import { getTransactions, type Transaction } from '../services/transactionService';
 import CreateTransaction from './CreateTransaction';
@@ -103,39 +104,45 @@ export default function Transactions({ type }: TransactionsProps) {
             {/* Transactions Table */}
             <Card elevation={2}>
                 <CardContent>
-                    <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #f0f0f0' }}>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Trans. ID</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Date</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Partner</TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Amount</TableCell>
-                                    <TableCell align="center" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Actions</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filteredTransactions.map(transaction => (
-                                    <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                                        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500 }}>#{transaction.id}</TableCell>
-                                        <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                        <TableCell>{transaction.partner_id}</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
-                                        <TableCell align="center">
-                                            <IconButton size="small" color="primary"><VisibilityIcon fontSize="small" /></IconButton>
-                                        </TableCell>
+                    {loading ? (
+                        <Box display="flex" justifyContent="center" py={4}>
+                            <CircularProgress />
+                        </Box>
+                    ) : (
+                        <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #f0f0f0' }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
+                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Trans. ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Date</TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Partner</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Amount</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
-                                ))}
-                                {filteredTransactions.length === 0 && !loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredTransactions.map(transaction => (
+                                        <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
+                                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500 }}>#{transaction.id}</TableCell>
+                                            <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                                            <TableCell>{transaction.partner_id}</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
+                                            <TableCell align="center">
+                                                <IconButton size="small" color="primary"><VisibilityIcon fontSize="small" /></IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {filteredTransactions.length === 0 && (
+                                        <TableRow>
+                                            <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                                <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
                 </CardContent>
             </Card>
 
