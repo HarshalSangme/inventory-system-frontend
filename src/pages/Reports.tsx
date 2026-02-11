@@ -1,9 +1,19 @@
 import DownloadIcon from '@mui/icons-material/Download';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import { Box, Button, Card, CardContent, Grid, Typography, Chip, Stack } from '@mui/material';
+import { Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton } from '@mui/material';
+import { useState } from 'react';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from '@mui/icons-material/Close';
 
 export default function Reports() {
+    // Snackbar State
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error' | 'info' | 'warning';
+    }>({ open: false, message: '', severity: 'info' });
     const reports = [
         { name: 'Stock Report', description: 'Current stock levels and value', type: 'Inventory', icon: BarChartIcon, color: '#2196f3' },
         { name: 'Sales Report', description: 'Sales by customer and product', type: 'Sales', icon: PieChartIcon, color: '#4caf50' },
@@ -12,7 +22,7 @@ export default function Reports() {
     ];
 
     const handleExport = (reportName: string) => {
-        alert(`Exporting ${reportName}... (Implementation placeholder)`);
+        setSnackbar({ open: true, message: `Exporting ${reportName}...`, severity: 'info' });
     };
 
     return (
@@ -53,6 +63,35 @@ export default function Reports() {
                     );
                 })}
             </Grid>
+
+            {/* Snackbar for notifications */}
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={4000} 
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Paper 
+                    elevation={6} 
+                    sx={{ 
+                        p: 2, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
+                                       snackbar.severity === 'error' ? '#f44336' : 
+                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        color: 'white'
+                    }}
+                >
+                    {snackbar.severity === 'success' && <CheckCircleIcon />}
+                    {snackbar.severity === 'error' && <ErrorIcon />}
+                    <Typography variant="body2">{snackbar.message}</Typography>
+                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Paper>
+            </Snackbar>
         </Box>
     );
 }

@@ -23,9 +23,15 @@ import {
     TableHead,
     TableRow,
     TextField,
-    Typography
+    Typography,
+    Snackbar,
+    CircularProgress
 } from '@mui/material';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
+import ConfirmDialog from '../components/ConfirmDialog';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface PartnersProps {
     type: 'customer' | 'vendor';
@@ -38,6 +44,17 @@ export default function Partners({ type }: PartnersProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
+
+    // Snackbar State
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error' | 'info' | 'warning';
+    }>({ open: false, message: '', severity: 'success' });
+
+    // Loading States
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -73,13 +90,14 @@ export default function Partners({ type }: PartnersProps) {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSaving(true);
         try {
             if (editingId) {
                 await updatePartner(editingId, { ...formData, type });
-                alert('Partner updated successfully');
+                setSnackbar({ open: true, message: 'Partner updated successfully', severity: 'success' });
             } else {
                 await createPartner({ ...formData, type });
-                alert('Partner created successfully');
+                setSnackbar({ open: true, message: 'Partner created successfully', severity: 'success' });
             }
             setIsModalOpen(false);
             setEditingId(null);
@@ -92,7 +110,9 @@ export default function Partners({ type }: PartnersProps) {
             });
         } catch (error) {
             console.error('Failed to create partner', error);
-            alert('Failed to create partner');
+            setSnackbar({ open: true, message: 'Failed to create/update partner', severity: 'error' });
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -108,14 +128,17 @@ export default function Partners({ type }: PartnersProps) {
     };
 
     const handleDelete = async (id: number) => {
+        setDeleting(true);
         try {
             await deletePartner(id);
             setPartners(partners.filter(p => p.id !== id));
             setDeleteConfirm(null);
-            alert('Partner deleted successfully');
+            setSnackbar({ open: true, message: 'Partner deleted successfully', severity: 'success' });
         } catch (error) {
             console.error('Failed to delete partner', error);
-            alert('Failed to delete partner');
+            setSnackbar({ open: true, message: 'Failed to delete partner', severity: 'error' });
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -221,22 +244,60 @@ export default function Partners({ type }: PartnersProps) {
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setIsModalOpen(false)}>Cancel</Button>
-                    <Button type="submit" form="partner-form" variant="contained">{editingId ? 'Update' : 'Save'}</Button>
+                    <Button onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
+                    <Button 
+                        type="submit" 
+                        form="partner-form" 
+                        variant="contained"
+                        disabled={saving}
+                        startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
+                    >
+                        {saving ? 'Saving...' : (editingId ? 'Update' : 'Save')}
+                    </Button>
                 </DialogActions>
             </Dialog>
 
             {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteConfirm !== null} onClose={() => setDeleteConfirm(null)}>
-                <DialogTitle sx={{ fontWeight: 700 }}>Confirm Delete</DialogTitle>
-                <DialogContent>
-                    <Typography>Are you sure you want to delete this {type === 'customer' ? 'customer' : 'vendor'}?</Typography>
-                </DialogContent>
-                <DialogActions sx={{ p: 2 }}>
-                    <Button onClick={() => setDeleteConfirm(null)}>Cancel</Button>
-                    <Button onClick={() => handleDelete(deleteConfirm!)} variant="contained" color="error">Delete</Button>
-                </DialogActions>
-            </Dialog>
+            <ConfirmDialog
+                open={deleteConfirm !== null}
+                title={`Delete ${type === 'customer' ? 'Customer' : 'Vendor'}?`}
+                message={`Are you sure you want to delete this ${type === 'customer' ? 'customer' : 'vendor'}? This action cannot be undone.`}
+                onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+                onCancel={() => setDeleteConfirm(null)}
+                confirmText="Delete"
+                confirmColor="error"
+                severity="error"
+                loading={deleting}
+            />
+
+            {/* Snackbar for notifications */}
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={4000} 
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Paper 
+                    elevation={6} 
+                    sx={{ 
+                        p: 2, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
+                                       snackbar.severity === 'error' ? '#f44336' : 
+                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        color: 'white'
+                    }}
+                >
+                    {snackbar.severity === 'success' && <CheckCircleIcon />}
+                    {snackbar.severity === 'error' && <ErrorIcon />}
+                    <Typography variant="body2">{snackbar.message}</Typography>
+                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Paper>
+            </Snackbar>
         </Box>
     );
 }

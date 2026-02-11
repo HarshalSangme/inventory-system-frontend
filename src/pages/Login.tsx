@@ -9,22 +9,27 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Typography from '@mui/material/Typography';
 import Container from '@mui/material/Container';
 import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
 
 export default function Login() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setLoading(true);
         try {
             await login(username, password);
             navigate('/');
         } catch (err) {
             console.error('Login failed', err);
             setError('Invalid credentials');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -79,8 +84,15 @@ export default function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                     />
-                    <Button type="submit" fullWidth variant="contained" sx={{ mt: 3, mb: 2 }}>
-                        Sign In
+                    <Button 
+                        type="submit" 
+                        fullWidth 
+                        variant="contained" 
+                        sx={{ mt: 3, mb: 2 }}
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={16} color="inherit" /> : null}
+                    >
+                        {loading ? 'Signing In...' : 'Sign In'}
                     </Button>
 
                     <Typography variant="caption" display="block" textAlign="center" color="text.secondary">

@@ -5,8 +5,15 @@ import {
   Typography,
   Autocomplete,
   TextField,
+  Snackbar,
+  Paper,
+  IconButton,
+  CircularProgress
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from '@mui/icons-material/Close';
 import jsPDF from 'jspdf';
 import { getInvoices } from '../services/invoiceService';
 
@@ -23,7 +30,6 @@ function loadImageAsync(src: string): Promise<HTMLImageElement> {
     img.onload = () => resolve(img);
     img.onerror = () => {
       console.error('Failed to load image:', src);
-      alert('Failed to load image: ' + src);
       reject(new Error('Failed to load image: ' + src));
     };
     img.src = src;
@@ -52,8 +58,8 @@ async function generateInvoicePDF(invoice: any) {
       loadImageAsync(mailUrl),
     ]);
   } catch (e) {
-    alert('Failed to load images for PDF.');
-    return;
+    console.error('Failed to load images for PDF:', e);
+    throw new Error('Failed to load images for PDF');
   }
 
   const MARGIN_X = 20;
@@ -484,12 +490,35 @@ async function generateInvoicePDF(invoice: any) {
 export default function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  // Snackbar State
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     getInvoices().then(data => {
       setInvoices(data.filter((inv: any) => inv.type === 'sale'));
     });
   }, []);
+
+  const handleDownloadPDF = async () => {
+    if (!selected) return;
+    
+    setDownloading(true);
+    try {
+      await generateInvoicePDF(selected);
+      setSnackbar({ open: true, message: 'Invoice PDF downloaded successfully', severity: 'success' });
+    } catch (error) {
+      console.error('Failed to generate PDF:', error);
+      setSnackbar({ open: true, message: 'Failed to generate invoice PDF', severity: 'error' });
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <Box sx={{ p: 4 }}>
@@ -512,12 +541,41 @@ export default function Invoices() {
 
       <Button
         variant="contained"
-        startIcon={<PictureAsPdfIcon />}
-        disabled={!selected}
-        onClick={() => selected && generateInvoicePDF(selected)}
+        startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
+        disabled={!selected || downloading}
+        onClick={handleDownloadPDF}
       >
-        Download Invoice
+        {downloading ? 'Generating PDF...' : 'Download Invoice'}
       </Button>
+
+      {/* Snackbar for notifications */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={4000} 
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Paper 
+          elevation={6} 
+          sx={{ 
+            p: 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
+                           snackbar.severity === 'error' ? '#f44336' : 
+                           snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+            color: 'white'
+          }}
+        >
+          {snackbar.severity === 'success' && <CheckCircleIcon />}
+          {snackbar.severity === 'error' && <ErrorIcon />}
+          <Typography variant="body2">{snackbar.message}</Typography>
+          <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Paper>
+      </Snackbar>
     </Box>
   );
 }

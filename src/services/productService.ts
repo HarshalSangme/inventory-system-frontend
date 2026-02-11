@@ -31,6 +31,11 @@ export const deleteProduct = async (id: number) => {
     return response.data;
 };
 
+export const bulkDeleteProducts = async (ids: number[]) => {
+    const response = await api.post('/products/bulk-delete', ids);
+    return response.data;
+};
+
 export const importProducts = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

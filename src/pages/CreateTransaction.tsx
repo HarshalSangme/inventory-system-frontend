@@ -16,11 +16,15 @@ import {
     TextField,
     Typography,
     Snackbar,
-    Alert
+    Paper,
+    CircularProgress
 } from '@mui/material';
 import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
 import { getPartners, type Partner } from '../services/partnerService';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface CreateTransactionProps {
     type: 'purchase' | 'sale';
@@ -34,8 +38,16 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
     const [items, setItems] = useState<TransactionItem[]>([]);
     const [vatPercent, setVatPercent] = useState<number>(0);
-    const [snackbarOpen, setSnackbarOpen] = useState(false);
-    const [snackbarMessage, setSnackbarMessage] = useState('');
+
+    // Snackbar State
+    const [snackbar, setSnackbar] = useState<{
+        open: boolean;
+        message: string;
+        severity: 'success' | 'error' | 'info' | 'warning';
+    }>({ open: false, message: '', severity: 'success' });
+
+    // Loading State
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -67,8 +79,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 const availableStock = product.stock_quantity - otherRowsUsage;
 
                 if (value > availableStock) {
-                    setSnackbarMessage(`Cannot add ${value}. Only ${availableStock} remaining for this product.`);
-                    setSnackbarOpen(true);
+                    setSnackbar({ open: true, message: `Cannot add ${value}. Only ${availableStock} remaining for this product.`, severity: 'warning' });
                     return;
                 }
             }
@@ -76,10 +87,6 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
         newItems[index] = { ...newItems[index], [field]: value };
         setItems(newItems);
-    };
-
-    const handleCloseSnackbar = () => {
-        setSnackbarOpen(false);
     };
 
     const removeItem = (index: number) => {
@@ -98,15 +105,15 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedPartnerId) {
-            alert('Please select a partner');
+            setSnackbar({ open: true, message: 'Please select a partner', severity: 'warning' });
             return;
         }
         if (items.length === 0) {
-            alert('Please add at least one item');
+            setSnackbar({ open: true, message: 'Please add at least one item', severity: 'warning' });
             return;
         }
 
-
+        setSubmitting(true);
         const transaction: TransactionCreate = {
             partner_id: Number(selectedPartnerId),
             type: type,
@@ -116,10 +123,13 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
         try {
             await createTransaction(transaction);
-            onSuccess();
+            setSnackbar({ open: true, message: 'Transaction created successfully', severity: 'success' });
+            setTimeout(() => onSuccess(), 1000);
         } catch (error) {
             console.error('Failed to create transaction', error);
-            alert('Failed to create transaction');
+            setSnackbar({ open: true, message: 'Failed to create transaction', severity: 'error' });
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -238,13 +248,44 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
             </Box>
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
-                <Button onClick={onClose}>Cancel</Button>
-                <Button type="submit" variant="contained">Complete {type === 'sale' ? 'Sale' : 'Purchase'}</Button>
+                <Button onClick={onClose} disabled={submitting}>Cancel</Button>
+                <Button 
+                    type="submit" 
+                    variant="contained"
+                    disabled={submitting}
+                    startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
+                >
+                    {submitting ? 'Processing...' : `Complete ${type === 'sale' ? 'Sale' : 'Purchase'}`}
+                </Button>
             </Box>
-            <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleCloseSnackbar} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-                <Alert onClose={handleCloseSnackbar} severity="warning" sx={{ width: '100%' }}>
-                    {snackbarMessage}
-                </Alert>
+
+            {/* Snackbar for notifications */}
+            <Snackbar 
+                open={snackbar.open} 
+                autoHideDuration={4000} 
+                onClose={() => setSnackbar({ ...snackbar, open: false })}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            >
+                <Paper 
+                    elevation={6} 
+                    sx={{ 
+                        p: 2, 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 1,
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
+                                       snackbar.severity === 'error' ? '#f44336' : 
+                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        color: 'white'
+                    }}
+                >
+                    {snackbar.severity === 'success' && <CheckCircleIcon />}
+                    {snackbar.severity === 'error' && <ErrorIcon />}
+                    <Typography variant="body2">{snackbar.message}</Typography>
+                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
+                        <CloseIcon fontSize="small" />
+                    </IconButton>
+                </Paper>
             </Snackbar>
         </Box>
     );
