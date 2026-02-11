@@ -61,7 +61,25 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
     const addItem = () => {
         if (products.length === 0) return;
-        setItems([...items, { product_id: products[0].id, quantity: 1, price: products[0].price }]);
+
+        // Find the first product with available stock if it's a sale
+        let defaultProduct = products[0];
+        if (type === 'sale') {
+            const firstAvailable = products.find(p => {
+                const alreadyAllocated = items.reduce((sum, item) => {
+                    return item.product_id === p.id ? sum + item.quantity : sum;
+                }, 0);
+                return p.stock_quantity > alreadyAllocated;
+            });
+
+            if (!firstAvailable) {
+                setSnackbar({ open: true, message: 'All products are out of stock or already fully allocated.', severity: 'warning' });
+                return;
+            }
+            defaultProduct = firstAvailable;
+        }
+
+        setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price }]);
     };
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
@@ -190,25 +208,39 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                             };
                                             setItems(newItems);
                                         }} sx={{ flexGrow: 1 }}>
-                                            {products.map(p => {
+                                            {products.filter(p => {
+                                                if (type !== 'sale') return true;
                                                 const metadataAllocated = items.reduce((sum, i, idx) => {
                                                     return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
                                                 }, 0);
                                                 const remaining = p.stock_quantity - metadataAllocated;
-                                                const isDisabled = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
+                                                // Keep if it has stock OR it is the current selection for this row
+                                                return remaining > 0 || p.id === item.product_id;
+                                            }).map(p => {
+                                                const metadataAllocated = items.reduce((sum, i, idx) => {
+                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
+                                                }, 0);
+                                                const remaining = p.stock_quantity - metadataAllocated;
+                                                const isOutOfStock = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
 
                                                 return (
-                                                    <MenuItem key={p.id} value={p.id} disabled={isDisabled}>
-                                                        {p.name} {isDisabled ? '(Out of Stock)' : ''}
+                                                    <MenuItem key={p.id} value={p.id} disabled={isOutOfStock}>
+                                                        {p.name} {isOutOfStock ? '(Out of Stock)' : ''}
                                                     </MenuItem>
                                                 )
                                             })}
                                         </Select>
-                                        {selectedProduct && type === 'sale' && (
-                                            <Typography variant="body2" color="success.main" sx={{ whiteSpace: 'nowrap', minWidth: '150px' }}>
-                                                Available Stock: {selectedProduct.stock_quantity}
-                                            </Typography>
-                                        )}
+                                        {selectedProduct && type === 'sale' && (() => {
+                                            const otherRowsUsage = items.reduce((sum, i, idx) => {
+                                                return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
+                                            }, 0);
+                                            const remaining = selectedProduct.stock_quantity - otherRowsUsage;
+                                            return (
+                                                <Typography variant="body2" color={remaining > 0 ? "success.main" : "error.main"} sx={{ whiteSpace: 'nowrap', minWidth: '150px' }}>
+                                                    Available Stock: {remaining}
+                                                </Typography>
+                                            );
+                                        })()}
                                     </Box>
                                 </TableCell>
                                 <TableCell align="right">
@@ -249,8 +281,8 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
                 <Button onClick={onClose} disabled={submitting}>Cancel</Button>
-                <Button 
-                    type="submit" 
+                <Button
+                    type="submit"
                     variant="contained"
                     disabled={submitting}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
@@ -260,22 +292,22 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
             </Box>
 
             {/* Snackbar for notifications */}
-            <Snackbar 
-                open={snackbar.open} 
-                autoHideDuration={4000} 
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
                 onClose={() => setSnackbar({ ...snackbar, open: false })}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-                <Paper 
-                    elevation={6} 
-                    sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                <Paper
+                    elevation={6}
+                    sx={{
+                        p: 2,
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
-                                       snackbar.severity === 'error' ? '#f44336' : 
-                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
+                            snackbar.severity === 'error' ? '#f44336' :
+                                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
                         color: 'white'
                     }}
                 >
