@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, CircularProgress, Divider, TextField, InputAdornment
+    TableHead, TableRow, CircularProgress, TextField, InputAdornment
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import PieChartIcon from '@mui/icons-material/PieChart';
@@ -587,7 +587,7 @@ function SalesReportPreview({ data, transactions, partners, searchTerm }: { data
                                 fill="#8884d8"
                                 dataKey="value"
                             >
-                                {chartData.map((entry, index) => (
+                                {chartData.map((_, index) => (
                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                             </Pie>
