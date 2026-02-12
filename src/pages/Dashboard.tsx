@@ -15,17 +15,17 @@ import WarningIcon from '@mui/icons-material/Warning';
 
 const StatCard = ({ title, value, subtext, icon: Icon, color, trend }: { title: string; value: string; subtext?: string, icon: any, color: string, trend?: number }) => (
     <Card elevation={2} sx={{ background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`, border: `1px solid ${color}30`, height: '100%' }}>
-        <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', pb: 2 }}>
+        <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', py: 1.5, px: 2 }}>
             <Box sx={{ flex: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{title}</Typography>
-                <Typography variant="h4" sx={{ mt: 1.5, fontWeight: 700, color: '#1a1a1a' }}>{value}</Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 1 }}>
-                    {trend && trend > 0 && <TrendingUpIcon sx={{ fontSize: 16, color: '#4caf50' }} />}
-                    <Typography variant="body2" color="text.secondary">{subtext}</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 400, fontSize: 11 }}>{title}</Typography>
+                <Typography variant="subtitle1" sx={{ mt: 0.5, fontWeight: 400, color: '#1a1a1a', fontSize: '1.25rem' }}>{value}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                    {trend && trend > 0 && <TrendingUpIcon sx={{ fontSize: 12, color: '#4caf50' }} />}
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{subtext}</Typography>
                 </Box>
             </Box>
-            <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon sx={{ fontSize: 28 }} />
+            <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: color, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon sx={{ fontSize: 20 }} />
             </Box>
         </CardContent>
     </Card>
@@ -63,15 +63,15 @@ export default function Dashboard() {
     ];
 
     return (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
             {/* Page Header */}
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Dashboard</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Welcome back! Here's your inventory overview.</Typography>
+            <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 400, color: '#1a1a1a', fontSize: '1.25rem' }}>Dashboard</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.25, fontSize: 11 }}>Welcome back! Here's your inventory overview.</Typography>
             </Box>
 
             {/* KPI Cards Grid - Responsive */}
-            <Grid container spacing={{ xs: 2, sm: 2, md: 3 }} sx={{ mb: 4 }}>
+            <Grid container spacing={{ xs: 1.5, sm: 1.5, md: 2 }} sx={{ mb: 2.5 }}>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatCard title="Total Customers" value={stats.total_customers.toString()} subtext="Active partners" icon={PeopleIcon} color="#2196f3" trend={1} />
                 </Grid>
@@ -87,20 +87,20 @@ export default function Dashboard() {
             </Grid>
 
             {/* Charts Section */}
-            <Grid container spacing={{ xs: 2, sm: 2, md: 3 }} sx={{ mb: 4 }}>
+            <Grid container spacing={{ xs: 1.5, sm: 1.5, md: 2 }} sx={{ mb: 2.5 }}>
                 {/* Bar Chart - Top Products */}
                 <Grid item xs={12} md={8} lg={8}>
                     <Card elevation={2} sx={{ height: '100%' }}>
-                        <CardHeader title="Top Selling Products" subheader="Sales by product" sx={{ pb: 1 }} />
-                        <CardContent sx={{ height: 380 }}>
+                        <CardHeader title="Top Selling Products" subheader="Sales by product" sx={{ pb: 0.5, '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
+                        <CardContent sx={{ height: 280 }}>
                             {chartData.length > 0 && chartData[0].value !== 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 30 }}>
+                                    <BarChart data={chartData} margin={{ top: 8, right: 20, left: 0, bottom: 24 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                                        <YAxis />
-                                        <Tooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} />
-                                        <Bar dataKey="value" fill="#2196f3" radius={[8, 8, 0, 0]} />
+                                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 10 }} />
+                                        <YAxis tick={{ fontSize: 10 }} />
+                                        <Tooltip contentStyle={{ borderRadius: 6, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: 11 }} />
+                                        <Bar dataKey="value" fill="#2196f3" radius={[6, 6, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (
@@ -115,11 +115,11 @@ export default function Dashboard() {
                 {/* Pie Chart - Stock Status */}
                 <Grid item xs={12} sm={6} md={4} lg={4}>
                     <Card elevation={2} sx={{ height: '100%' }}>
-                        <CardHeader title="Stock Status" subheader="Product availability" sx={{ pb: 1 }} />
-                        <CardContent sx={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CardHeader title="Stock Status" subheader="Product availability" sx={{ pb: 0.5, '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
+                        <CardContent sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
+                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={5} dataKey="value">
                                         {pieData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color} />
                                         ))}
@@ -136,25 +136,25 @@ export default function Dashboard() {
             {/* Recent Sales Table */}
             <Grid item xs={12}>
                 <Card elevation={2}>
-                    <CardHeader title="Recent Sales" subheader="Latest transactions" />
-                    <CardContent>
+                    <CardHeader title="Recent Sales" subheader="Latest transactions" sx={{ '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
+                    <CardContent sx={{ py: 1 }}>
                         {stats.recent_sales.length > 0 ? (
                             <Box sx={{ overflowX: 'auto' }}>
                                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '2px solid #f0f0f0', backgroundColor: '#f9f9f9' }}>
-                                            <th style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600, fontSize: '0.875rem' }}>Date</th>
-                                            <th style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600, fontSize: '0.875rem' }}>Amount</th>
-                                            <th style={{ textAlign: 'left', padding: '12px 16px', fontWeight: 600, fontSize: '0.875rem' }}>Status</th>
+                                            <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 400, fontSize: '0.75rem' }}>Date</th>
+                                            <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 400, fontSize: '0.75rem' }}>Amount</th>
+                                            <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 400, fontSize: '0.75rem' }}>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {stats.recent_sales.map((sale, idx) => (
                                             <tr key={sale.id} style={{ borderBottom: idx < stats.recent_sales.length - 1 ? '1px solid #f0f0f0' : 'none' }}>
-                                                <td style={{ padding: '12px 16px' }}>{new Date(sale.date).toLocaleDateString()}</td>
-                                                <td style={{ padding: '12px 16px', fontWeight: 600, color: '#2e7d32' }}>{sale.total_amount.toFixed(2)}</td>
-                                                <td style={{ padding: '12px 16px' }}>
-                                                    <span style={{ display: 'inline-block', padding: '4px 12px', backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>Completed</span>
+                                                <td style={{ padding: '8px 12px', fontSize: '0.75rem' }}>{new Date(sale.date).toLocaleDateString()}</td>
+                                                <td style={{ padding: '8px 12px', fontWeight: 400, color: '#2e7d32', fontSize: '0.75rem' }}>{sale.total_amount.toFixed(2)}</td>
+                                                <td style={{ padding: '8px 12px' }}>
+                                                    <span style={{ display: 'inline-block', padding: '2px 8px', backgroundColor: '#e8f5e9', color: '#2e7d32', borderRadius: 3, fontSize: '0.65rem', fontWeight: 400 }}>Completed</span>
                                                 </td>
                                             </tr>
                                         ))}
@@ -162,8 +162,8 @@ export default function Dashboard() {
                                 </table>
                             </Box>
                         ) : (
-                            <Box sx={{ textAlign: 'center', py: 4 }}>
-                                <Typography color="text.secondary">No recent sales</Typography>
+                            <Box sx={{ textAlign: 'center', py: 2 }}>
+                                <Typography variant="caption" color="text.secondary">No recent sales</Typography>
                             </Box>
                         )}
                     </CardContent>

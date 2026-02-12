@@ -320,11 +320,11 @@ export default function Products() {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Products</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Products</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your inventory items</Typography>
                 </Box>
                 <Box>
@@ -355,7 +355,7 @@ export default function Products() {
             </Box>
 
             {/* Search & Filter */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} md={8}>
                     <TextField
                         fullWidth
@@ -398,12 +398,12 @@ export default function Products() {
                                                 onChange={(e) => handleSelectAll(e.target.checked)}
                                             />
                                         </TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Product Name</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>SKU</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Price</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Stock</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Status</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Actions</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Product Name</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Price</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Stock</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Status</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -417,7 +417,7 @@ export default function Products() {
                                             </TableCell>
                                             <TableCell sx={{ fontWeight: 500 }}>{product.name}</TableCell>
                                             <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{product.sku}</Typography></TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 600, color: '#2e7d32' }}>{product.price}</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 400, color: '#2e7d32' }}>{product.price}</TableCell>
                                             <TableCell align="right">{product.stock_quantity}</TableCell>
                                             <TableCell>
                                                 <Chip
@@ -457,7 +457,7 @@ export default function Products() {
 
             {/* Create/Edit Product Dialog */}
             <Dialog open={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingId(null); }} fullWidth maxWidth="sm">
-                <DialogTitle sx={{ fontWeight: 700, py: 2 }}>{editingId ? 'Edit Product' : 'Add New Product'}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 400, py: 2 }}>{editingId ? 'Edit Product' : 'Add New Product'}</DialogTitle>
                 <DialogContent>
                     <Box component="form" id="product-form" onSubmit={handleCreate} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
                         <TextField required fullWidth label="Product Name" placeholder="e.g., Laptop" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
@@ -539,7 +539,7 @@ export default function Products() {
                 
                 <DialogContent>
                     {/* Instructions */}
-                    <Paper elevation={0} sx={{ mb: 3, p: 2, backgroundColor: '#e3f2fd', border: '1px solid #90caf9' }}>
+                    <Paper elevation={0} sx={{ mb: 2, p: 2, backgroundColor: '#e3f2fd', border: '1px solid #90caf9' }}>
                         <Typography variant="body2" fontWeight={700} sx={{ mb: 1, color: '#1976d2' }}>
                             📋 Excel File Requirements:
                         </Typography>

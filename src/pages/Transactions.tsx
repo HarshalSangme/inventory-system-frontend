@@ -70,11 +70,11 @@ export default function Transactions({ type }: TransactionsProps) {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>{title}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a' }}>{title}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage {title.toLowerCase()} transactions</Typography>
                 </Box>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsModalOpen(true)} size="large">
@@ -83,7 +83,7 @@ export default function Transactions({ type }: TransactionsProps) {
             </Box>
 
             {/* Search */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} md={8}>
                     <TextField
                         fullWidth
@@ -113,11 +113,11 @@ export default function Transactions({ type }: TransactionsProps) {
                             <Table size="small">
                                 <TableHead>
                                     <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Trans. ID</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Partner</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Amount</TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Actions</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Trans. ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Partner</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -126,7 +126,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                             <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500 }}>#{transaction.id}</TableCell>
                                             <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                             <TableCell>{transaction.partner_id}</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 700, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
                                             <TableCell align="center">
                                                 <IconButton size="small" color="primary"><VisibilityIcon fontSize="small" /></IconButton>
                                             </TableCell>
@@ -148,7 +148,7 @@ export default function Transactions({ type }: TransactionsProps) {
 
             {/* Create Transaction Dialog */}
             <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} fullWidth maxWidth="lg">
-                <DialogTitle sx={{ fontWeight: 700, py: 2 }}>New {type === 'sale' ? 'Sale' : 'Purchase'}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 400, py: 2 }}>New {type === 'sale' ? 'Sale' : 'Purchase'}</DialogTitle>
                 <DialogContent sx={{ mt: 2 }}>
                     <CreateTransaction
                         type={type}

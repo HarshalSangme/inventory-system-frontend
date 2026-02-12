@@ -19,7 +19,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 
-const drawerWidth = 240;
+const drawerWidth = 200;
 
 const items = [
     { icon: <Inventory2Icon />, label: 'Dashboard', path: '/' },
@@ -49,17 +49,17 @@ export default function Sidebar() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                py: 3,
-                px: 2,
-                minHeight: 120
+                py: 1.5,
+                px: 1.5,
+                minHeight: 80
             }}>
-                <img src={logo} alt="Logo" style={{ height: 56, marginBottom: 10, marginTop: 4 }} />
-                <Box component="span" sx={{ fontWeight: 700, fontSize: 20, textAlign: 'center', lineHeight: 1.2 }}>
+                <img src={logo} alt="Logo" style={{ height: 36, marginBottom: 6 }} />
+                <Box component="span" sx={{ fontWeight: 400, fontSize: 14, textAlign: 'center', lineHeight: 1.2 }}>
                     JOT AUTO PARTS W.L.L
                 </Box>
             </Toolbar>
             <Divider />
-            <List>
+            <List dense sx={{ '& .MuiListItemButton-root': { py: 0.5, minHeight: 36 }, '& .MuiListItemIcon-root': { minWidth: 36 }, '& .MuiListItemText-primary': { fontSize: 13 }, '& .MuiSvgIcon-root': { fontSize: 18 } }}>
                 {items.map((it) => (
                     <ListItem key={it.path} disablePadding>
                         <ListItemButton component={RouterLink} to={it.path} selected={location.pathname === it.path}>
@@ -72,8 +72,8 @@ export default function Sidebar() {
 
             <Box sx={{ flex: 1 }} />
             <Divider />
-            <Box sx={{ p: 1 }}>
-                <List>
+            <Box sx={{ p: 0.5 }}>
+                <List dense sx={{ '& .MuiListItemButton-root': { py: 0.5, minHeight: 36 }, '& .MuiListItemIcon-root': { minWidth: 36 }, '& .MuiListItemText-primary': { fontSize: 13 }, '& .MuiSvgIcon-root': { fontSize: 18 } }}>
                     <ListItem disablePadding>
                         <ListItemButton>
                             <ListItemIcon><SettingsIcon /></ListItemIcon>

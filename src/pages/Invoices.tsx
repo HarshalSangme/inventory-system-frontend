@@ -522,7 +522,7 @@ export default function Invoices() {
 
   return (
     <Box sx={{ p: 4 }}>
-      <Typography variant="h5" gutterBottom>
+      <Typography variant="subtitle1" gutterBottom>
         Download Invoice PDF
       </Typography>
 

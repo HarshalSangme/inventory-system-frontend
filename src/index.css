@@ -1,3 +1,85 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Global scaling to achieve 80% zoom appearance at 100% */
+:root {
+  font-size: 13px;
+}
+
+body {
+  font-size: 13px;
+}
+
+/* Scale down MUI components */
+.MuiTypography-root {
+  font-size: inherit;
+}
+
+.MuiTableCell-root {
+  padding: 6px 12px !important;
+  font-size: 0.8125rem !important;
+}
+
+.MuiButton-root {
+  font-size: 0.75rem !important;
+  padding: 4px 10px !important;
+  min-height: 28px !important;
+}
+
+.MuiButton-sizeSmall {
+  font-size: 0.7rem !important;
+  padding: 2px 8px !important;
+  min-height: 24px !important;
+}
+
+.MuiButton-sizeMedium {
+  font-size: 0.75rem !important;
+  padding: 4px 10px !important;
+  min-height: 28px !important;
+}
+
+.MuiButton-sizeLarge {
+  font-size: 0.8rem !important;
+  padding: 6px 14px !important;
+  min-height: 32px !important;
+}
+
+.MuiChip-root {
+  font-size: 0.75rem;
+  height: 22px;
+}
+
+.MuiIconButton-root {
+  padding: 6px;
+}
+
+.MuiCardContent-root {
+  padding: 12px !important;
+}
+
+.MuiCardHeader-root {
+  padding: 12px 16px !important;
+}
+
+.MuiDialogTitle-root {
+  padding: 12px 16px !important;
+  font-size: 1rem !important;
+}
+
+.MuiDialogContent-root {
+  padding: 12px 16px !important;
+}
+
+.MuiDialogActions-root {
+  padding: 8px 16px !important;
+}
+
+.MuiTextField-root .MuiInputBase-input {
+  padding: 8px 12px !important;
+  font-size: 0.8125rem !important;
+}
+
+.MuiInputLabel-root {
+  font-size: 0.8125rem !important;
+}

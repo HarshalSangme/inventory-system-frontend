@@ -46,7 +46,7 @@ export default function Login() {
                 <Avatar sx={{ m: 1, bgcolor: 'primary.main' }}>
                     <LockOutlinedIcon />
                 </Avatar>
-                <Typography component="h1" variant="h5">
+                <Typography component="h1" variant="subtitle1">
                     Welcome Back
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>

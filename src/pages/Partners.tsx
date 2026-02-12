@@ -161,11 +161,11 @@ export default function Partners({ type }: PartnersProps) {
     );
 
     return (
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                 <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#1a1a1a' }}>{title}</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a' }}>{title}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your {title.toLowerCase()}</Typography>
                 </Box>
                 <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large">
@@ -174,7 +174,7 @@ export default function Partners({ type }: PartnersProps) {
             </Box>
 
             {/* Search */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
+            <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} md={8}>
                     <TextField
                         fullWidth
@@ -199,11 +199,11 @@ export default function Partners({ type }: PartnersProps) {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Email</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Phone</TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: '#1a1a1a' }}>Address</TableCell>
-                                    <TableCell align="center" sx={{ fontWeight: 700, color: '#1a1a1a' }}>Actions</TableCell>
+                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Name</TableCell>
+                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Phone</TableCell>
+                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Address</TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -234,7 +234,7 @@ export default function Partners({ type }: PartnersProps) {
 
             {/* Create Partner Dialog */}
             <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} fullWidth maxWidth="sm">
-                <DialogTitle sx={{ fontWeight: 700, py: 2 }}>{editingId ? `Edit ${type === 'customer' ? 'Customer' : 'Vendor'}` : `Add New ${type === 'customer' ? 'Customer' : 'Vendor'}`}</DialogTitle>
+                <DialogTitle sx={{ fontWeight: 400, py: 2 }}>{editingId ? `Edit ${type === 'customer' ? 'Customer' : 'Vendor'}` : `Add New ${type === 'customer' ? 'Customer' : 'Vendor'}`}</DialogTitle>
                 <DialogContent>
                     <Box component="form" id="partner-form" onSubmit={handleCreate} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
                         <TextField required fullWidth label="Name" placeholder="Full name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
