@@ -21,3 +21,17 @@ export const logout = () => {
 export const isAuthenticated = () => {
     return !!localStorage.getItem('token');
 };
+
+export const getCurrentUsername = (): string => {
+    const token = localStorage.getItem('token');
+    if (!token) return '';
+    
+    try {
+        // JWT tokens are base64 encoded in 3 parts: header.payload.signature
+        const payload = token.split('.')[1];
+        const decoded = JSON.parse(atob(payload));
+        return decoded.sub || ''; // 'sub' is typically the username in JWT
+    } catch {
+        return '';
+    }
+};

@@ -71,12 +71,25 @@ export default function Invoices() {
   const [downloading, setDownloading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
+  // Get logged-in user's username for sales person
+  const getLoggedInUsername = (): string => {
+    const token = localStorage.getItem('token');
+    if (!token) return '';
+    try {
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return decoded.sub || '';
+    } catch {
+      return '';
+    }
+  };
+
   // Edit form state
   const [editData, setEditData] = useState<InvoiceEditData>({
     invoiceNumber: '',
     paymentTerms: 'CREDIT',
     dueDate: '',
-    salesPerson: 'Mamun Hussain',
+    salesPerson: getLoggedInUsername(),
     notes: ''
   });
 
@@ -114,7 +127,7 @@ export default function Invoices() {
       invoiceNumber: generateInvoiceNumber(selected.id),
       paymentTerms: 'CREDIT',
       dueDate: dueDate.toISOString().split('T')[0],
-      salesPerson: 'Mamun Hussain',
+      salesPerson: selected.sales_person || getLoggedInUsername(),
       notes: ''
     });
     setEditDialogOpen(true);
