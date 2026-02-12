@@ -8,12 +8,32 @@ import {
   Snackbar,
   Paper,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Card,
+  CardContent,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import jsPDF from 'jspdf';
 import { getInvoices } from '../services/invoiceService';
 
@@ -22,6 +42,24 @@ const BANK_DETAILS = {
   bank: 'Bahrain Islamic Bank (BisB)',
   iban: 'BH49BISB00010002015324',
 };
+
+const PAYMENT_TERMS_OPTIONS = [
+  'CASH',
+  'CREDIT',
+  'NET 15',
+  'NET 30',
+  'NET 45',
+  'NET 60',
+  'COD',
+  'PREPAID'
+];
+
+// Generate invoice number in format JOT/YYYY/XXX
+function generateInvoiceNumber(invoiceId: number): string {
+  const year = new Date().getFullYear();
+  const paddedId = String(invoiceId).padStart(3, '0');
+  return `JOT/${year}/${paddedId}`;
+}
 
 // Helper to load an image as HTMLImageElement (async)
 function loadImageAsync(src: string): Promise<HTMLImageElement> {
@@ -36,7 +74,15 @@ function loadImageAsync(src: string): Promise<HTMLImageElement> {
   });
 }
 
-async function generateInvoicePDF(invoice: any) {
+interface InvoiceEditData {
+  invoiceNumber: string;
+  paymentTerms: string;
+  dueDate: string;
+  salesPerson: string;
+  notes: string;
+}
+
+async function generateInvoicePDF(invoice: any, editData: InvoiceEditData) {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -97,32 +143,27 @@ async function generateInvoicePDF(invoice: any) {
 
   doc.addImage(letterImg, 'JPEG', LETTER_X, BASELINE_Y + 2, LETTER_W, LETTER_H);
 
-  // ---- COMPANY ADDRESS (Changed to Times New Roman, smaller size) ----
+  // ---- COMPANY ADDRESS ----
   doc.setFontSize(6.5);
   doc.setFont('times', 'normal');
   const addressY = BASELINE_Y + LETTER_H + 4;
   doc.text('Shop 128, Road 6, Block 604, Cr number 174260-1', pageWidth / 2, addressY, { align: 'right' });
-  doc.setFont('helvetica', 'normal'); // Reset to helvetica for rest of document
+  doc.setFont('helvetica', 'normal');
 
-  // ---- META BOX (Updated layout to match draft) ----
+  // ---- META BOX ----
   const metaBoxW = 240;
   const metaBoxH = 68;
   const metaX = pageWidth - metaBoxW - MARGIN_X;
 
   doc.setFontSize(9);
 
-  // Draw table structure
   const rowHeight = 17;
   const labelColW = 100;
 
-  // Outer border
   doc.setLineWidth(1);
   doc.rect(metaX, HEADER_Y, metaBoxW, metaBoxH);
-
-  // Draw vertical line between columns
   doc.line(metaX + labelColW, HEADER_Y, metaX + labelColW, HEADER_Y + metaBoxH);
 
-  // All rows have dark background for label column only
   doc.setFillColor(95, 95, 95);
   doc.rect(metaX, HEADER_Y, labelColW, metaBoxH, 'F');
 
@@ -135,32 +176,31 @@ async function generateInvoicePDF(invoice: any) {
   doc.text(formatDate(invoice.date), metaX + labelColW + 6, HEADER_Y + 12);
   doc.line(metaX, HEADER_Y + rowHeight, metaX + metaBoxW, HEADER_Y + rowHeight);
 
-  // Row 2: Invoice No
+  // Row 2: Invoice No - USE EDITED VALUE
   doc.setTextColor(255);
   doc.setFont('helvetica', 'bold');
   doc.text('Invoice No:', metaX + 6, HEADER_Y + rowHeight + 12);
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
-  doc.text(String(invoice.invoice_no || invoice.id || ''), metaX + labelColW + 6, HEADER_Y + rowHeight + 12);
+  doc.text(editData.invoiceNumber, metaX + labelColW + 6, HEADER_Y + rowHeight + 12);
   doc.line(metaX, HEADER_Y + 2 * rowHeight, metaX + metaBoxW, HEADER_Y + 2 * rowHeight);
 
-  // Row 3: Payment Terms
+  // Row 3: Payment Terms - USE EDITED VALUE
   doc.setTextColor(255);
   doc.setFont('helvetica', 'bold');
   doc.text('Payment Terms:', metaX + 6, HEADER_Y + 2 * rowHeight + 12);
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
-  doc.text('CREDIT', metaX + labelColW + 6, HEADER_Y + 2 * rowHeight + 12);
+  doc.text(editData.paymentTerms, metaX + labelColW + 6, HEADER_Y + 2 * rowHeight + 12);
   doc.line(metaX, HEADER_Y + 3 * rowHeight, metaX + metaBoxW, HEADER_Y + 3 * rowHeight);
 
-  // Row 4: Due Date
+  // Row 4: Due Date - USE EDITED VALUE
   doc.setTextColor(255);
   doc.setFont('helvetica', 'bold');
   doc.text('Due Date:', metaX + 6, HEADER_Y + 3 * rowHeight + 12);
   doc.setTextColor(0);
   doc.setFont('helvetica', 'normal');
-  const dueDate = invoice.due_date ? formatDate(invoice.due_date) : '';
-  doc.text(dueDate, metaX + labelColW + 6, HEADER_Y + 3 * rowHeight + 12);
+  doc.text(editData.dueDate ? formatDate(editData.dueDate) : '', metaX + labelColW + 6, HEADER_Y + 3 * rowHeight + 12);
 
   // ---- INVOICE TITLE BAR ----
   const BAR_W = 160;
@@ -187,7 +227,6 @@ async function generateInvoicePDF(invoice: any) {
   doc.text(`ADDRESS #`, MARGIN_X + 12, y + 34);
   doc.text(`MOBILE NO #`, MARGIN_X + 12, y + 48);
   doc.setFont('helvetica', 'normal');
-  // Use partner data for customer information
   const customerName = invoice.partner?.name || invoice.customer_name || '';
   const customerAddress = invoice.partner?.address || invoice.address || '';
   const customerMobile = invoice.partner?.phone || invoice.mobile || '';
@@ -195,38 +234,23 @@ async function generateInvoicePDF(invoice: any) {
   doc.text(String(customerAddress), MARGIN_X + 120, y + 34);
   doc.text(String(customerMobile), MARGIN_X + 120, y + 48);
 
-  y += 70; // Move past customer box
+  y += 70;
 
   /* ================= TABLE ================= */
-  // Headers: SR.NO, ITEM CODE, ITEM NAME, QTY, PRICE, DISCOUNT, AMT, %, VAT, NET AMT
   const headers = ['SR.NO', 'ITEM CODE', 'ITEM NAME', 'QTY', 'PRICE', 'DISCOUNT', 'AMT', '%', 'VAT', 'NET AMT'];
 
-  // Adjusted column widths to accommodate new columns
-  const colWidthsAbs = [
-    30,   // SR.NO
-    55,   // ITEM CODE
-    135,  // ITEM NAME
-    30,   // QTY
-    45,   // PRICE
-    50,   // DISCOUNT
-    45,   // AMT
-    25,   // %
-    45,   // VAT
-    80,   // NET AMT
-  ];
+  const colWidthsAbs = [30, 55, 135, 30, 45, 50, 45, 25, 45, 80];
 
-  // Helper to draw table header
   const drawTableHeader = (currentY: number) => {
     doc.setFillColor(0, 0, 0);
     doc.setLineWidth(1);
-    doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, 22, 'FD'); // Fill and Draw
+    doc.rect(MARGIN_X, currentY, CONTENT_WIDTH, 22, 'FD');
     doc.setTextColor(255);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
 
     let x = MARGIN_X;
     headers.forEach((h, i) => {
-      // Center-align headers
       const colCenter = x + colWidthsAbs[i] / 2;
       doc.text(h, colCenter, currentY + 14, { align: 'center' });
       x += colWidthsAbs[i];
@@ -241,13 +265,9 @@ async function generateInvoicePDF(invoice: any) {
   y = drawTableHeader(y);
 
   const TABLE_ROW_HEIGHT = 20;
-
-  // Calculate totals on the fly
   let totalGross = 0;
-  let totalVat = 0;
 
   (invoice.items || []).forEach((item: any, idx: number) => {
-    // Check for page break
     if (y + TABLE_ROW_HEIGHT > pageHeight - FOOTER_RESERVED_HEIGHT) {
       doc.addPage();
       y = MARGIN_TOP + 20;
@@ -266,45 +286,35 @@ async function generateInvoicePDF(invoice: any) {
       String(item.quantity || ''),
       price.toFixed(3),
       String(item.discount || ''),
-      '', // AMT column (empty for now)
-      '', // % column (empty for now)
+      '',
+      '',
       String(item.vat || ''),
       net.toFixed(3),
     ];
 
-    // Draw ONLY vertical lines for this row (no horizontal lines)
     let cx = MARGIN_X;
-
     doc.setLineWidth(0.5);
-
-    // Left border
     doc.line(MARGIN_X, y, MARGIN_X, y + TABLE_ROW_HEIGHT);
 
-    // Column separators
     for (let i = 0; i < colWidthsAbs.length; i++) {
       cx += colWidthsAbs[i];
       doc.line(cx, y, cx, y + TABLE_ROW_HEIGHT);
     }
 
-    // Add text content with proper wrapping for ITEM NAME
     cx = MARGIN_X;
     doc.setFontSize(8);
 
     row.forEach((cell, i) => {
       if (i === 2) {
-        // ITEM NAME - wrap text if too long
-        const maxWidth = colWidthsAbs[i] - 8; // padding
+        const maxWidth = colWidthsAbs[i] - 8;
         const lines = doc.splitTextToSize(cell, maxWidth);
         doc.text(lines[0] || '', cx + 4, y + 13, { align: 'left' });
       } else if (i === 1) {
-        // ITEM CODE - left aligned
         doc.text(cell, cx + 4, y + 13, { align: 'left' });
       } else if (i === 0) {
-        // SR.NO - center aligned
         const colCenter = cx + colWidthsAbs[i] / 2;
         doc.text(cell, colCenter, y + 13, { align: 'center' });
       } else {
-        // Other columns - right aligned
         doc.text(cell, cx + colWidthsAbs[i] - 4, y + 13, { align: 'right' });
       }
       cx += colWidthsAbs[i];
@@ -313,12 +323,10 @@ async function generateInvoicePDF(invoice: any) {
     y += TABLE_ROW_HEIGHT;
   });
 
-  // Draw bottom border of the table
   doc.line(MARGIN_X, y, MARGIN_X + CONTENT_WIDTH, y);
 
-  // Calculate Final Totals
   const vatPercent = invoice.vat_percent || 0;
-  totalVat = totalGross * (vatPercent / 100);
+  const totalVat = totalGross * (vatPercent / 100);
   const finalNet = totalGross + totalVat;
 
   /* ================= TOTALS & BANK ================= */
@@ -357,7 +365,6 @@ async function generateInvoicePDF(invoice: any) {
     totalsY += 18;
   });
 
-  // NET AMT row with dark background
   doc.setFillColor(95, 95, 95);
   doc.setTextColor(255);
   doc.rect(totalsX, totalsY, 200, 20, 'FD');
@@ -400,7 +407,7 @@ async function generateInvoicePDF(invoice: any) {
   doc.text('Thank You for Your Business!', MARGIN_X, y);
   doc.setFont('helvetica', 'normal');
 
-  /* ================= FOOTER (ALWAYS AT BOTTOM OF LAST PAGE) ================= */
+  /* ================= FOOTER ================= */
   const barHeight = 28;
   const orangeHeight = 6;
   const contactBarTotal = barHeight + orangeHeight + 10;
@@ -430,14 +437,13 @@ async function generateInvoicePDF(invoice: any) {
     }
   }
 
-  // Signature Row (Above Shop Footer Image)
   let sigRowY = shopFooterY - 35;
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
   doc.text('Authorized Signatory/STAMP', MARGIN_X, sigRowY);
 
   doc.setFont('helvetica', 'bold');
-  const salesPerson = invoice.sales_person || 'Mamun Hussain';
+  const salesPerson = editData.salesPerson || 'Mamun Hussain';
   doc.text(`Sales Person # ${salesPerson}`, pageWidth / 2 - 40, sigRowY, { align: 'left' });
   doc.text('Date', pageWidth / 2 + 50, sigRowY);
   doc.text('Time', pageWidth / 2 + 90, sigRowY);
@@ -451,46 +457,47 @@ async function generateInvoicePDF(invoice: any) {
   doc.text('Receiver Signature', pageWidth - MARGIN_X, sigRowY, { align: 'right' });
   doc.setFont('helvetica', 'normal');
 
-  // Contact Footer Bar (Very Bottom) - WITH VISIBLE ICONS matching image 3
   const barY = pageHeight - barHeight - orangeHeight - 8;
 
-  // Black bar
   doc.setFillColor(30, 30, 30);
   doc.rect(0, barY, pageWidth, barHeight, 'F');
 
-  // Orange stripe
   doc.setFillColor(217, 108, 0);
   doc.rect(0, barY + barHeight, pageWidth, orangeHeight, 'F');
 
-  // Draw phone icons on the left
   const iconSize = 28;
   const iconY = barY + (barHeight - iconSize) / 2;
 
-  // First phone icon
   doc.addImage(phoneImg, 'PNG', 18, iconY, iconSize, iconSize);
-
-  // Second WhatsApp icon
   doc.addImage(whatsappImg, 'PNG', 48, iconY, iconSize, iconSize);
 
-  // Phone number text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
   doc.text('+973 36341106', 78, barY + 19);
 
-  // Email section on the right
   const emailIconX = pageWidth - 190;
   doc.addImage(mailImg, 'PNG', emailIconX, iconY, iconSize, iconSize);
 
   doc.text('harjinders717@gmail.com', pageWidth - 24, barY + 19, { align: 'right' });
 
-  doc.save(`invoice_${invoice.id}.pdf`);
+  doc.save(`invoice_${editData.invoiceNumber.replace(/\//g, '_')}.pdf`);
 }
 
 export default function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [downloading, setDownloading] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+
+  // Edit form state
+  const [editData, setEditData] = useState<InvoiceEditData>({
+    invoiceNumber: '',
+    paymentTerms: 'CREDIT',
+    dueDate: '',
+    salesPerson: 'Mamun Hussain',
+    notes: ''
+  });
 
   // Snackbar State
   const [snackbar, setSnackbar] = useState<{
@@ -505,13 +512,33 @@ export default function Invoices() {
     });
   }, []);
 
+  // Open edit dialog when invoice is selected
+  const handleOpenEditDialog = () => {
+    if (!selected) return;
+
+    // Calculate default due date (30 days from invoice date)
+    const invoiceDate = new Date(selected.date);
+    const dueDate = new Date(invoiceDate);
+    dueDate.setDate(dueDate.getDate() + 30);
+
+    setEditData({
+      invoiceNumber: generateInvoiceNumber(selected.id),
+      paymentTerms: 'CREDIT',
+      dueDate: dueDate.toISOString().split('T')[0],
+      salesPerson: 'Mamun Hussain',
+      notes: ''
+    });
+    setEditDialogOpen(true);
+  };
+
   const handleDownloadPDF = async () => {
     if (!selected) return;
-    
+
     setDownloading(true);
     try {
-      await generateInvoicePDF(selected);
+      await generateInvoicePDF(selected, editData);
       setSnackbar({ open: true, message: 'Invoice PDF downloaded successfully', severity: 'success' });
+      setEditDialogOpen(false);
     } catch (error) {
       console.error('Failed to generate PDF:', error);
       setSnackbar({ open: true, message: 'Failed to generate invoice PDF', severity: 'error' });
@@ -520,57 +547,283 @@ export default function Invoices() {
     }
   };
 
+  const formatDate = (d: any) => {
+    if (!d) return '-';
+    const date = new Date(d);
+    return date.toLocaleDateString('en-GB');
+  };
+
   return (
-    <Box sx={{ p: 4 }}>
-      <Typography variant="subtitle1" gutterBottom>
-        Download Invoice PDF
+    <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
+      <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a', mb: 2 }}>
+        Generate Invoice
       </Typography>
 
-      <Autocomplete
-        options={invoices}
-        getOptionLabel={inv =>
-          inv.customer_name || `Invoice #${inv.id}`
-        }
-        value={selected}
-        onChange={(_, value) => setSelected(value)}
-        sx={{ minWidth: 320, mb: 2 }}
-        renderInput={params => (
-          <TextField {...params} label="Select Invoice" />
-        )}
-      />
+      <Card sx={{ mb: 2 }}>
+        <CardContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Select a sale transaction to generate an invoice
+          </Typography>
 
-      <Button
-        variant="contained"
-        startIcon={downloading ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfIcon />}
-        disabled={!selected || downloading}
-        onClick={handleDownloadPDF}
-      >
-        {downloading ? 'Generating PDF...' : 'Download Invoice'}
-      </Button>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                options={invoices}
+                getOptionLabel={inv =>
+                  `${inv.partner?.name || inv.customer_name || 'Unknown'} - ${formatDate(inv.date)} - BHD ${Number(inv.total_amount || 0).toFixed(3)}`
+                }
+                value={selected}
+                onChange={(_, value) => setSelected(value)}
+                size="small"
+                renderInput={params => (
+                  <TextField {...params} label="Select Sale Transaction" placeholder="Search by customer name..." />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id}>
+                    <Box sx={{ width: '100%' }}>
+                      <Typography variant="body2" fontWeight={500}>
+                        {option.partner?.name || option.customer_name || 'Unknown Customer'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Date: {formatDate(option.date)} | Amount: BHD {Number(option.total_amount || 0).toFixed(3)} | Items: {option.items?.length || 0}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Button
+                variant="contained"
+                startIcon={<EditIcon />}
+                disabled={!selected}
+                onClick={handleOpenEditDialog}
+                size="small"
+              >
+                Configure & Generate Invoice
+              </Button>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      {/* Selected Invoice Preview */}
+      {selected && (
+        <Card>
+          <CardContent>
+            <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 500 }}>
+              Selected Transaction Details
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Customer</Typography>
+                <Typography variant="body2">{selected.partner?.name || selected.customer_name || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Date</Typography>
+                <Typography variant="body2">{formatDate(selected.date)}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Total Amount</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#2e7d32' }}>
+                  BHD {Number(selected.total_amount || 0).toFixed(3)}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Items</Typography>
+                <Typography variant="body2">{selected.items?.length || 0} items</Typography>
+              </Grid>
+            </Grid>
+
+            {selected.items && selected.items.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                  Line Items
+                </Typography>
+                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }}>Product</TableCell>
+                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Qty</TableCell>
+                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Price</TableCell>
+                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Total</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selected.items.map((item: any, idx: number) => (
+                        <TableRow key={idx}>
+                          <TableCell sx={{ fontSize: 11 }}>{item.product?.name || item.name || '-'}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }} align="right">{item.quantity}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }} align="right">{Number(item.price || 0).toFixed(3)}</TableCell>
+                          <TableCell sx={{ fontSize: 11 }} align="right">
+                            {(Number(item.quantity || 0) * Number(item.price || 0)).toFixed(3)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Edit Invoice Dialog */}
+      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <VisibilityIcon color="primary" />
+            <Typography variant="subtitle1">Configure Invoice Before Download</Typography>
+          </Box>
+          <IconButton onClick={() => setEditDialogOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+            Edit the following fields to customize your invoice. These changes will be reflected in the PDF.
+          </Typography>
+
+          <Grid container spacing={2}>
+            {/* Invoice Number */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Invoice Number"
+                value={editData.invoiceNumber}
+                onChange={(e) => setEditData({ ...editData, invoiceNumber: e.target.value })}
+                size="small"
+                helperText="Format: JOT/YYYY/XXX"
+              />
+            </Grid>
+
+            {/* Payment Terms */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Payment Terms</InputLabel>
+                <Select
+                  value={editData.paymentTerms}
+                  label="Payment Terms"
+                  onChange={(e) => setEditData({ ...editData, paymentTerms: e.target.value })}
+                >
+                  {PAYMENT_TERMS_OPTIONS.map(term => (
+                    <MenuItem key={term} value={term}>{term}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Due Date */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Due Date"
+                type="date"
+                value={editData.dueDate}
+                onChange={(e) => setEditData({ ...editData, dueDate: e.target.value })}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+
+            {/* Sales Person */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Sales Person"
+                value={editData.salesPerson}
+                onChange={(e) => setEditData({ ...editData, salesPerson: e.target.value })}
+                size="small"
+              />
+            </Grid>
+          </Grid>
+
+          <Divider sx={{ my: 2 }} />
+
+          {/* Preview Summary */}
+          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Invoice Preview Summary</Typography>
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Invoice No</Typography>
+                <Typography variant="body2" fontWeight={500}>{editData.invoiceNumber}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Payment Terms</Typography>
+                <Typography variant="body2" fontWeight={500}>{editData.paymentTerms}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Due Date</Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {editData.dueDate ? new Date(editData.dueDate).toLocaleDateString('en-GB') : '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Sales Person</Typography>
+                <Typography variant="body2" fontWeight={500}>{editData.salesPerson}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Customer</Typography>
+                <Typography variant="body2">{selected?.partner?.name || selected?.customer_name || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Invoice Date</Typography>
+                <Typography variant="body2">{formatDate(selected?.date)}</Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Total Amount</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 500, color: '#2e7d32' }}>
+                  BHD {Number(selected?.total_amount || 0).toFixed(3)}
+                </Typography>
+              </Grid>
+              <Grid item xs={6} md={3}>
+                <Typography variant="caption" color="text.secondary">Items Count</Typography>
+                <Typography variant="body2">{selected?.items?.length || 0} items</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setEditDialogOpen(false)} color="inherit" size="small">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={downloading ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfIcon />}
+            onClick={handleDownloadPDF}
+            disabled={downloading}
+            size="small"
+          >
+            {downloading ? 'Generating...' : 'Download PDF'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar for notifications */}
-      <Snackbar 
-        open={snackbar.open} 
-        autoHideDuration={4000} 
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Paper 
-          elevation={6} 
-          sx={{ 
-            p: 2, 
-            display: 'flex', 
-            alignItems: 'center', 
+        <Paper
+          elevation={6}
+          sx={{
+            p: 1.5,
+            display: 'flex',
+            alignItems: 'center',
             gap: 1,
-            backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
-                           snackbar.severity === 'error' ? '#f44336' : 
-                           snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+            backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
+              snackbar.severity === 'error' ? '#f44336' :
+                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
             color: 'white'
           }}
         >
-          {snackbar.severity === 'success' && <CheckCircleIcon />}
-          {snackbar.severity === 'error' && <ErrorIcon />}
-          <Typography variant="body2">{snackbar.message}</Typography>
+          {snackbar.severity === 'success' && <CheckCircleIcon fontSize="small" />}
+          {snackbar.severity === 'error' && <ErrorIcon fontSize="small" />}
+          <Typography variant="caption">{snackbar.message}</Typography>
           <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
             <CloseIcon fontSize="small" />
           </IconButton>
