@@ -49,23 +49,23 @@ export default function Products() {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-    
+
     // Selection State
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
     const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
-    
+
     // Loading States
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
-    
+
     // Snackbar State
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
         message: string;
         severity: 'success' | 'error' | 'info' | 'warning';
     }>({ open: false, message: '', severity: 'success' });
-    
+
     // Import Dialog State
     const [importDialogOpen, setImportDialogOpen] = useState(false);
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -81,6 +81,7 @@ export default function Products() {
         sku: '',
         price: 0,
         cost_price: 0,
+        stock_quantity: 0,
         min_stock_level: 5,
         description: ''
     });
@@ -121,6 +122,7 @@ export default function Products() {
                 sku: '',
                 price: 0,
                 cost_price: 0,
+                stock_quantity: 0,
                 min_stock_level: 5,
                 description: ''
             });
@@ -139,6 +141,7 @@ export default function Products() {
             sku: product.sku,
             price: product.price,
             cost_price: product.cost_price,
+            stock_quantity: product.stock_quantity,
             min_stock_level: product.min_stock_level,
             description: product.description || ''
         });
@@ -168,6 +171,7 @@ export default function Products() {
             sku: '',
             price: 0,
             cost_price: 0,
+            stock_quantity: 0,
             min_stock_level: 5,
             description: ''
         });
@@ -198,16 +202,16 @@ export default function Products() {
 
     const handleBulkDelete = async () => {
         setBulkDeleteConfirm(false);
-        
+
         try {
             setBulkDeleteLoading(true);
             await bulkDeleteProducts(selectedIds);
             setProducts(products.filter(p => !selectedIds.includes(p.id)));
             setSelectedIds([]);
-            setSnackbar({ 
-                open: true, 
-                message: `Successfully deleted ${selectedIds.length} product(s)`, 
-                severity: 'success' 
+            setSnackbar({
+                open: true,
+                message: `Successfully deleted ${selectedIds.length} product(s)`,
+                severity: 'success'
             });
         } catch (error) {
             console.error('Failed to bulk delete products', error);
@@ -251,7 +255,7 @@ export default function Products() {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
-        
+
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             handleFileSelect(e.dataTransfer.files[0]);
         }
@@ -281,10 +285,10 @@ export default function Products() {
             setUploadProgress(100);
             setUploadStatus('success');
             setUploadMessage(result.message || 'Products imported successfully!');
-            
+
             // Show snackbar and reload
             setSnackbar({ open: true, message: 'Products imported successfully!', severity: 'success' });
-            
+
             // Reload products after 1.5 seconds
             setTimeout(async () => {
                 await loadProducts();
@@ -329,8 +333,8 @@ export default function Products() {
                 </Box>
                 <Box>
                     {selectedIds.length > 0 && (
-                        <Button 
-                            variant="outlined" 
+                        <Button
+                            variant="outlined"
                             color="error"
                             startIcon={bulkDeleteLoading ? <CircularProgress size={16} /> : <DeleteSweepIcon />}
                             onClick={handleBulkDeleteClick}
@@ -340,8 +344,8 @@ export default function Products() {
                             Delete {selectedIds.length} Selected
                         </Button>
                     )}
-                    <Button 
-                        variant="outlined" 
+                    <Button
+                        variant="outlined"
                         startIcon={<CloudUploadIcon />}
                         onClick={handleImportClick}
                         sx={{ mr: 2 }}
@@ -470,15 +474,22 @@ export default function Products() {
                                 <TextField required fullWidth label="Cost Price" type="number" inputProps={{ step: '0.01', min: '0' }} value={formData.cost_price} onChange={e => setFormData({ ...formData, cost_price: Number(e.target.value) })} />
                             </Grid>
                         </Grid>
-                        <TextField required fullWidth label="Min Stock Level" type="number" inputProps={{ min: '0' }} value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: Number(e.target.value) })} />
+                        <Grid container spacing={2}>
+                            <Grid item xs={6}>
+                                <TextField required fullWidth label="Current Stock" type="number" inputProps={{ min: '0' }} value={formData.stock_quantity} onChange={e => setFormData({ ...formData, stock_quantity: Number(e.target.value) })} />
+                            </Grid>
+                            <Grid item xs={6}>
+                                <TextField required fullWidth label="Min Stock Level" type="number" inputProps={{ min: '0' }} value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: Number(e.target.value) })} />
+                            </Grid>
+                        </Grid>
                         <TextField fullWidth label="Description" multiline rows={3} placeholder="Add product details..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => { setIsModalOpen(false); setEditingId(null); }} disabled={saving}>Cancel</Button>
-                    <Button 
-                        type="submit" 
-                        form="product-form" 
+                    <Button
+                        type="submit"
+                        form="product-form"
                         variant="contained"
                         disabled={saving}
                         startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
@@ -515,8 +526,8 @@ export default function Products() {
             />
 
             {/* Import Dialog */}
-            <Dialog 
-                open={importDialogOpen} 
+            <Dialog
+                open={importDialogOpen}
                 onClose={() => !uploading && setImportDialogOpen(false)}
                 maxWidth="sm"
                 fullWidth
@@ -527,7 +538,7 @@ export default function Products() {
                             <CloudUploadIcon />
                             <Typography variant="h6">Import Products</Typography>
                         </Box>
-                        <IconButton 
+                        <IconButton
                             onClick={() => !uploading && setImportDialogOpen(false)}
                             disabled={uploading}
                             size="small"
@@ -536,7 +547,7 @@ export default function Products() {
                         </IconButton>
                     </Box>
                 </DialogTitle>
-                
+
                 <DialogContent>
                     {/* Instructions */}
                     <Paper elevation={0} sx={{ mb: 2, p: 2, backgroundColor: '#e3f2fd', border: '1px solid #90caf9' }}>
@@ -615,10 +626,10 @@ export default function Products() {
                     ) : (
                         /* Selected File Display */
                         <Box>
-                            <Paper 
+                            <Paper
                                 elevation={0}
-                                sx={{ 
-                                    p: 2, 
+                                sx={{
+                                    p: 2,
                                     backgroundColor: '#f5f5f5',
                                     border: '1px solid',
                                     borderColor: 'grey.300',
@@ -638,7 +649,7 @@ export default function Products() {
                                         </Box>
                                     </Box>
                                     {!uploading && (
-                                        <IconButton 
+                                        <IconButton
                                             onClick={handleRemoveFile}
                                             size="small"
                                             color="error"
@@ -660,8 +671,8 @@ export default function Products() {
                                             {uploadProgress}%
                                         </Typography>
                                     </Box>
-                                    <LinearProgress 
-                                        variant="determinate" 
+                                    <LinearProgress
+                                        variant="determinate"
                                         value={uploadProgress}
                                         sx={{
                                             height: 8,
@@ -694,13 +705,13 @@ export default function Products() {
                 </DialogContent>
 
                 <DialogActions sx={{ px: 3, pb: 3 }}>
-                    <Button 
+                    <Button
                         onClick={() => setImportDialogOpen(false)}
                         disabled={uploading}
                     >
                         Cancel
                     </Button>
-                    <Button 
+                    <Button
                         variant="contained"
                         onClick={handleImportUpload}
                         disabled={!selectedFile || uploading || uploadStatus === 'success'}
@@ -712,22 +723,22 @@ export default function Products() {
             </Dialog>
 
             {/* Snackbar for notifications */}
-            <Snackbar 
-                open={snackbar.open} 
-                autoHideDuration={4000} 
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
                 onClose={() => setSnackbar({ ...snackbar, open: false })}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-                <Paper 
-                    elevation={6} 
-                    sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                <Paper
+                    elevation={6}
+                    sx={{
+                        p: 2,
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
-                                       snackbar.severity === 'error' ? '#f44336' : 
-                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
+                            snackbar.severity === 'error' ? '#f44336' :
+                                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
                         color: 'white'
                     }}
                 >

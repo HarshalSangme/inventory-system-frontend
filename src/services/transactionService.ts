@@ -4,6 +4,11 @@ export interface TransactionItem {
     product_id: number;
     quantity: number;
     price: number;
+    discount: number;
+    product?: {
+        name: string;
+        sku: string;
+    };
 }
 
 export interface TransactionCreate {
@@ -20,6 +25,7 @@ export interface Transaction {
     partner_id: number;
     total_amount: number;
     vat_percent?: number;
+    sales_person?: string;
     items: TransactionItem[]; // Start with basic response, might receive expanded items
 }
 

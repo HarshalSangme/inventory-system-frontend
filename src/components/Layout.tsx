@@ -51,7 +51,7 @@ export default function Layout() {
                         <span style={{ margin: '0 6px' }}>|</span>
                         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <EmailIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                            <span style={{ marginLeft: 2 }}>harjinders717@gmail.com</span>
+                            <span style={{ marginLeft: 2 }}>jotautopartswll@gmail.com</span>
                         </span>
                     </Typography>
                 </Box>

@@ -17,7 +17,10 @@ import {
     Typography,
     Snackbar,
     Paper,
-    CircularProgress
+    CircularProgress,
+    Divider,
+    Chip,
+    Tooltip
 } from '@mui/material';
 import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
@@ -25,6 +28,7 @@ import { getPartners, type Partner } from '../services/partnerService';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 interface CreateTransactionProps {
     type: 'purchase' | 'sale';
@@ -79,7 +83,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
             defaultProduct = firstAvailable;
         }
 
-        setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price }]);
+        setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price, discount: 0 }]);
     };
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
@@ -111,14 +115,18 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
         setItems(items.filter((_, i) => i !== index));
     };
 
-    const calculateSubtotal = () => {
-        return items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    };
+    // Per-item computed values
+    const getItemGross = (item: TransactionItem) => item.price * item.quantity;
+    const getItemAmtAfterDisc = (item: TransactionItem) => getItemGross(item) - (item.discount || 0);
+    const getItemVat = (item: TransactionItem) => getItemAmtAfterDisc(item) * (vatPercent / 100);
+    const getItemNet = (item: TransactionItem) => getItemAmtAfterDisc(item) + getItemVat(item);
 
-    const calculateTotal = () => {
-        const subtotal = calculateSubtotal();
-        return subtotal + (subtotal * vatPercent / 100);
-    };
+    // Summary computed values
+    const totalGross = items.reduce((sum, item) => sum + getItemGross(item), 0);
+    const totalDiscount = items.reduce((sum, item) => sum + (item.discount || 0), 0);
+    const totalAmtAfterDisc = totalGross - totalDiscount;
+    const totalVat = totalAmtAfterDisc * (vatPercent / 100);
+    const grandTotal = totalAmtAfterDisc + totalVat;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,10 +161,13 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Header Section */}
             <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={6}>
-                    <Typography variant="body2" gutterBottom>{type === 'sale' ? 'Customer' : 'Vendor'}</Typography>
-                    <Select fullWidth value={selectedPartnerId} onChange={e => setSelectedPartnerId(Number(e.target.value))} displayEmpty required>
+                <Grid item xs={12} md={5}>
+                    <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>
+                        {type === 'sale' ? '👤 Customer' : '🏭 Vendor'}
+                    </Typography>
+                    <Select fullWidth value={selectedPartnerId} onChange={e => setSelectedPartnerId(Number(e.target.value))} displayEmpty required size="small">
                         <MenuItem value="">Select Partner...</MenuItem>
                         {partners.map(p => (
                             <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
@@ -164,128 +175,242 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                     </Select>
                 </Grid>
                 <Grid item xs={6} md={3}>
+                    <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>📊 VAT %</Typography>
                     <TextField
-                        label="VAT %"
                         type="number"
                         inputProps={{ min: 0, max: 100, step: '0.01' }}
                         value={vatPercent}
                         onChange={e => setVatPercent(Number(e.target.value))}
                         fullWidth
+                        size="small"
                     />
                 </Grid>
-                <Grid item xs={6} md={3} sx={{ textAlign: { xs: 'left', md: 'right' } }}>
-                    <Typography variant="caption">Total Amount (incl. VAT)</Typography>
-                    <Typography variant="subtitle1" color="primary">{calculateTotal().toFixed(2)}</Typography>
+                <Grid item xs={6} md={4}>
+                    <Paper elevation={2} sx={{
+                        p: 1.5,
+                        background: 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
+                        color: 'white',
+                        borderRadius: 2,
+                        textAlign: 'center'
+                    }}>
+                        <Typography variant="caption" sx={{ opacity: 0.8 }}>Grand Total</Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                            {grandTotal.toFixed(3)} <Typography component="span" variant="caption">BHD</Typography>
+                        </Typography>
+                    </Paper>
                 </Grid>
             </Grid>
 
-            <Table size="small">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>Product</TableCell>
-                        <TableCell align="right" sx={{ width: 120 }}>Selling Qty</TableCell>
-                        <TableCell align="right" sx={{ width: 160 }}>Price</TableCell>
-                        <TableCell align="right" sx={{ width: 160 }}>Total</TableCell>
-                        <TableCell sx={{ width: 64 }}></TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {items.map((item, index) => {
-                        const selectedProduct = products.find(p => p.id === item.product_id);
-                        return (
-                            <TableRow key={index}>
-                                <TableCell>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Select fullWidth value={item.product_id} onChange={e => {
-                                            const pid = Number(e.target.value);
-                                            const prod = products.find(p => p.id === pid);
-                                            const newItems = [...items];
-                                            newItems[index] = {
-                                                ...newItems[index],
-                                                product_id: pid,
-                                                price: type === 'sale' ? (prod?.price || 0) : newItems[index].price,
-                                                quantity: 1
-                                            };
-                                            setItems(newItems);
-                                        }} sx={{ flexGrow: 1 }}>
-                                            {products.filter(p => {
-                                                if (type !== 'sale') return true;
-                                                const metadataAllocated = items.reduce((sum, i, idx) => {
-                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
-                                                }, 0);
-                                                const remaining = p.stock_quantity - metadataAllocated;
-                                                // Keep if it has stock OR it is the current selection for this row
-                                                return remaining > 0 || p.id === item.product_id;
-                                            }).map(p => {
-                                                const metadataAllocated = items.reduce((sum, i, idx) => {
-                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
-                                                }, 0);
-                                                const remaining = p.stock_quantity - metadataAllocated;
-                                                const isOutOfStock = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
+            {/* Items Table */}
+            <Paper variant="outlined" sx={{ overflow: 'auto' }}>
+                <Table size="small">
+                    <TableHead>
+                        <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 700, minWidth: 200 }}>Product</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>Qty</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 110 }}>Price</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 100 }}>
+                                <Tooltip title="Per-item discount amount (BHD)"><span>Discount</span></Tooltip>
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 100, color: '#1565c0' }}>
+                                <Tooltip title="Price × Qty − Discount"><span>Amount</span></Tooltip>
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 80, color: '#e65100' }}>
+                                <Tooltip title={`VAT at ${vatPercent}%`}><span>VAT</span></Tooltip>
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 110, color: '#2e7d32' }}>
+                                <Tooltip title="Amount + VAT"><span>Net Amt</span></Tooltip>
+                            </TableCell>
+                            <TableCell sx={{ width: 50 }}></TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {items.map((item, index) => {
+                            const selectedProduct = products.find(p => p.id === item.product_id);
+                            const itemAmtAfterDisc = getItemAmtAfterDisc(item);
+                            const itemVat = getItemVat(item);
+                            const itemNet = getItemNet(item);
 
+                            return (
+                                <TableRow key={index} sx={{
+                                    '&:hover': { bgcolor: '#f3f6fd' },
+                                    transition: 'background-color 0.2s'
+                                }}>
+                                    <TableCell>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Select fullWidth value={item.product_id} onChange={e => {
+                                                const pid = Number(e.target.value);
+                                                const prod = products.find(p => p.id === pid);
+                                                const newItems = [...items];
+                                                newItems[index] = {
+                                                    ...newItems[index],
+                                                    product_id: pid,
+                                                    price: type === 'sale' ? (prod?.price || 0) : newItems[index].price,
+                                                    quantity: 1,
+                                                    discount: 0
+                                                };
+                                                setItems(newItems);
+                                            }} size="small" sx={{ flexGrow: 1 }}>
+                                                {products.filter(p => {
+                                                    if (type !== 'sale') return true;
+                                                    const metadataAllocated = items.reduce((sum, i, idx) => {
+                                                        return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
+                                                    }, 0);
+                                                    const remaining = p.stock_quantity - metadataAllocated;
+                                                    return remaining > 0 || p.id === item.product_id;
+                                                }).map(p => {
+                                                    const metadataAllocated = items.reduce((sum, i, idx) => {
+                                                        return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
+                                                    }, 0);
+                                                    const remaining = p.stock_quantity - metadataAllocated;
+                                                    const isOutOfStock = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
+
+                                                    return (
+                                                        <MenuItem key={p.id} value={p.id} disabled={isOutOfStock}>
+                                                            {p.name} {isOutOfStock ? '(Out of Stock)' : ''}
+                                                        </MenuItem>
+                                                    )
+                                                })}
+                                            </Select>
+                                            {selectedProduct && type === 'sale' && (() => {
+                                                const otherRowsUsage = items.reduce((sum, i, idx) => {
+                                                    return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
+                                                }, 0);
+                                                const remaining = selectedProduct.stock_quantity - otherRowsUsage;
                                                 return (
-                                                    <MenuItem key={p.id} value={p.id} disabled={isOutOfStock}>
-                                                        {p.name} {isOutOfStock ? '(Out of Stock)' : ''}
-                                                    </MenuItem>
-                                                )
-                                            })}
-                                        </Select>
-                                        {selectedProduct && type === 'sale' && (() => {
-                                            const otherRowsUsage = items.reduce((sum, i, idx) => {
-                                                return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
-                                            }, 0);
-                                            const remaining = selectedProduct.stock_quantity - otherRowsUsage;
-                                            return (
-                                                <Typography variant="body2" color={remaining > 0 ? "success.main" : "error.main"} sx={{ whiteSpace: 'nowrap', minWidth: '150px' }}>
-                                                    Available Stock: {remaining}
-                                                </Typography>
-                                            );
-                                        })()}
-                                    </Box>
-                                </TableCell>
-                                <TableCell align="right">
-                                    <TextField
-                                        type="number"
-                                        inputProps={{ min: 1, style: { textAlign: 'right' } }}
-                                        value={item.quantity}
-                                        onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
-                                        size="small"
-                                        fullWidth
-                                    />
-                                </TableCell>
-                                <TableCell align="right">
-                                    <TextField
-                                        type="number"
-                                        inputProps={{ min: 0, step: '0.01', style: { textAlign: 'right' } }}
-                                        value={item.price}
-                                        onChange={e => updateItem(index, 'price', Number(e.target.value))}
-                                        size="small"
-                                        fullWidth
-                                    />
-                                </TableCell>
-                                <TableCell align="right">{(item.quantity * item.price).toFixed(2)}</TableCell>
-                                <TableCell>
-                                    <IconButton onClick={() => removeItem(index)} color="error">
-                                        <DeleteIcon />
-                                    </IconButton>
+                                                    <Chip
+                                                        size="small"
+                                                        label={`${remaining} left`}
+                                                        color={remaining > 5 ? 'success' : remaining > 0 ? 'warning' : 'error'}
+                                                        variant="outlined"
+                                                        sx={{ minWidth: 65, fontSize: '0.7rem' }}
+                                                    />
+                                                );
+                                            })()}
+                                        </Box>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <TextField
+                                            type="number"
+                                            inputProps={{ min: 1, style: { textAlign: 'right' } }}
+                                            value={item.quantity}
+                                            onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
+                                            size="small"
+                                            fullWidth
+                                        />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <TextField
+                                            type="number"
+                                            inputProps={{ min: 0, step: '0.001', style: { textAlign: 'right' } }}
+                                            value={item.price}
+                                            onChange={e => updateItem(index, 'price', Number(e.target.value))}
+                                            size="small"
+                                            fullWidth
+                                        />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <TextField
+                                            type="number"
+                                            inputProps={{ min: 0, step: '0.001', style: { textAlign: 'right' } }}
+                                            value={item.discount}
+                                            onChange={e => updateItem(index, 'discount', Number(e.target.value))}
+                                            size="small"
+                                            fullWidth
+                                            sx={{
+                                                '& input': {
+                                                    color: item.discount > 0 ? '#e65100' : 'inherit'
+                                                }
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#1565c0' }}>
+                                            {itemAmtAfterDisc.toFixed(3)}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Typography variant="body2" sx={{ color: '#e65100' }}>
+                                            {vatPercent > 0 ? itemVat.toFixed(3) : '-'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#2e7d32' }}>
+                                            {itemNet.toFixed(3)}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                        <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                        {items.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                                    <ReceiptLongIcon sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
+                                    <Typography variant="body2">No items added yet. Click "Add Item" to start.</Typography>
                                 </TableCell>
                             </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
+                        )}
+                    </TableBody>
+                </Table>
+            </Paper>
 
-            <Box sx={{ p: 1, bgcolor: 'background.paper', borderTop: 1, borderColor: 'divider' }}>
-                <Button startIcon={<AddIcon />} onClick={addItem}>Add Item</Button>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                {/* Add Item Button */}
+                <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" size="small">
+                    Add Item
+                </Button>
+
+                {/* Summary Section */}
+                {items.length > 0 && (
+                    <Paper variant="outlined" sx={{ p: 1.5, minWidth: 260, borderRadius: 2 }}>
+                        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, borderBottom: '1px solid #e0e0e0', pb: 0.5 }}>
+                            Invoice Summary
+                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">Gross Amount:</Typography>
+                            <Typography variant="body2">{totalGross.toFixed(3)}</Typography>
+                        </Box>
+                        {totalDiscount > 0 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="body2" color="error">Discount:</Typography>
+                                <Typography variant="body2" color="error">-{totalDiscount.toFixed(3)}</Typography>
+                            </Box>
+                        )}
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">After Discount:</Typography>
+                            <Typography variant="body2">{totalAmtAfterDisc.toFixed(3)}</Typography>
+                        </Box>
+                        {vatPercent > 0 && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="body2" sx={{ color: '#e65100' }}>VAT ({vatPercent}%):</Typography>
+                                <Typography variant="body2" sx={{ color: '#e65100' }}>+{totalVat.toFixed(3)}</Typography>
+                            </Box>
+                        )}
+                        <Divider sx={{ my: 0.5 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Net Total (BHD):</Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#2e7d32' }}>{grandTotal.toFixed(3)}</Typography>
+                        </Box>
+                    </Paper>
+                )}
             </Box>
 
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
                 <Button onClick={onClose} disabled={submitting}>Cancel</Button>
                 <Button
                     type="submit"
                     variant="contained"
-                    disabled={submitting}
+                    disabled={submitting || items.length === 0}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
+                    sx={{
+                        background: 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',
+                        '&:hover': { background: 'linear-gradient(135deg, #0d1257 0%, #1a237e 100%)' }
+                    }}
                 >
                     {submitting ? 'Processing...' : `Complete ${type === 'sale' ? 'Sale' : 'Purchase'}`}
                 </Button>
