@@ -34,6 +34,13 @@ const items = [
 
 export default function Sidebar() {
     const location = useLocation();
+    const handleSettings = () => {
+        window.location.href = '/settings';
+    };
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+    };
 
     return (
         <Drawer
@@ -75,13 +82,13 @@ export default function Sidebar() {
             <Box sx={{ p: 0.5 }}>
                 <List dense sx={{ '& .MuiListItemButton-root': { py: 0.5, minHeight: 36 }, '& .MuiListItemIcon-root': { minWidth: 36 }, '& .MuiListItemText-primary': { fontSize: 13 }, '& .MuiSvgIcon-root': { fontSize: 18 } }}>
                     <ListItem disablePadding>
-                        <ListItemButton>
+                        <ListItemButton onClick={handleSettings}>
                             <ListItemIcon><SettingsIcon /></ListItemIcon>
                             <ListItemText primary="Settings" />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
-                        <ListItemButton>
+                        <ListItemButton onClick={handleLogout}>
                             <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
                             <ListItemText primary="Logout" />
                         </ListItemButton>
