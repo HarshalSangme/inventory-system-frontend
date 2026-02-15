@@ -768,12 +768,12 @@ function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { d
 // Profit & Loss Preview Component
 function ProfitLossPreview({ data, transactions }: { data: any[], transactions: Transaction[] }) {
     const sales = transactions.filter(t => t.type === 'sale');
-    const purchases = transactions.filter(t => t.type === 'purchase');
 
     const reportData = data[0] || {};
     const totalRevenue = parseFloat(reportData['Total Sales Revenue'] || '0');
     const totalCOGS = parseFloat(reportData['Total COGS'] || '0');
     const profit = parseFloat(reportData['Gross Profit'] || '0');
+    const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
 
     const chartData = [
         { name: 'Sales Revenue', value: totalRevenue, fill: '#4caf50' },
