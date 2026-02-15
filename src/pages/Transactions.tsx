@@ -24,7 +24,8 @@ import {
     Grid,
     CircularProgress
 } from '@mui/material';
-import { getTransactions, type Transaction } from '../services/transactionService';
+import { getTransactions, type Transaction, getInvoicePdf } from '../services/transactionService';
+
 import CreateTransaction from './CreateTransaction';
 
 interface TransactionsProps {
@@ -44,9 +45,18 @@ export default function Transactions({ type }: TransactionsProps) {
         setDetailModalOpen(true);
     };
 
-    const handlePrint = () => {
+    const handlePrint = async () => {
         if (selectedTransaction) {
-            window.open(`http://localhost:8000/invoices/${selectedTransaction.id}`, '_blank');
+            try {
+                const blob = await getInvoicePdf(selectedTransaction.id);
+                const url = window.URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                // Clean up the URL object after a delay to ensure it loads
+                setTimeout(() => window.URL.revokeObjectURL(url), 100);
+            } catch (error) {
+                console.error('Failed to print invoice', error);
+                alert('Failed to load invoice. Please try again.');
+            }
         }
     };
 
