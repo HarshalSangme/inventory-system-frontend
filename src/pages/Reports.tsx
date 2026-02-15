@@ -76,7 +76,7 @@ export default function Reports() {
     const handleExport = (reportId: ReportType) => {
         const report = reports.find(r => r.id === reportId);
         const data = getReportData(reportId);
-        
+
         if (!data.length) {
             setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
             return;
@@ -86,7 +86,7 @@ export default function Reports() {
         const headers = Object.keys(data[0]).join(',');
         const rows = data.map(row => Object.values(row).join(',')).join('\n');
         const csv = `${headers}\n${rows}`;
-        
+
         // Download
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
@@ -106,7 +106,7 @@ export default function Reports() {
             switch (reportId) {
                 case 'stock': {
                     if (!products || products.length === 0) return [];
-                    const filtered = products.filter(p => 
+                    const filtered = products.filter(p =>
                         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                         p.sku.toLowerCase().includes(searchTerm.toLowerCase())
                     );
@@ -159,17 +159,36 @@ export default function Reports() {
                     if (!transactions || transactions.length === 0) return [];
                     const sales = transactions.filter(t => t.type === 'sale');
                     const purchases = transactions.filter(t => t.type === 'purchase');
+
                     const totalRevenue = sales.reduce((sum, t) => sum + t.total_amount, 0);
-                    const totalCost = purchases.reduce((sum, t) => sum + t.total_amount, 0);
-                    const profit = totalRevenue - totalCost;
+
+                    // Calculate COGS (Cost of Goods Sold)
+                    // Iterate through all sales items and sum (quantity * product.cost_price)
+                    // Note: This uses CURRENT cost price, which is an approximation if cost price changed over time
+                    let totalCOGS = 0;
+
+                    sales.forEach(transaction => {
+                        transaction.items.forEach(item => {
+                            const product = products.find(p => p.id === item.product_id);
+                            if (product) {
+                                totalCOGS += item.quantity * product.cost_price;
+                            }
+                        });
+                    });
+
+                    const profit = totalRevenue - totalCOGS;
                     const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
+
+                    // Also useful metrics
+                    const totalInventoryPurchase = purchases.reduce((sum, t) => sum + t.total_amount, 0);
+
                     return [{
                         'Total Sales Revenue': totalRevenue.toFixed(2),
-                        'Total Purchase Cost': totalCost.toFixed(2),
+                        'Total COGS': totalCOGS.toFixed(2),
                         'Gross Profit': profit.toFixed(2),
                         'Profit Margin %': margin.toFixed(2),
                         'Sales Transactions': sales.length,
-                        'Purchase Transactions': purchases.length
+                        'Inventory Purchases': totalInventoryPurchase.toFixed(2)
                     }];
                 }
                 default:
@@ -241,13 +260,13 @@ export default function Reports() {
                     const ReportIcon = report.icon;
                     return (
                         <Grid item xs={12} sm={6} md={6} lg={3} key={report.id}>
-                            <Card 
-                                elevation={2} 
-                                sx={{ 
-                                    height: '100%', 
-                                    display: 'flex', 
-                                    flexDirection: 'column', 
-                                    background: `linear-gradient(135deg, ${report.color}15 0%, ${report.color}05 100%)`, 
+                            <Card
+                                elevation={2}
+                                sx={{
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    background: `linear-gradient(135deg, ${report.color}15 0%, ${report.color}05 100%)`,
                                     border: `1px solid ${report.color}30`,
                                     transition: 'transform 0.2s, box-shadow 0.2s',
                                     '&:hover': {
@@ -259,14 +278,14 @@ export default function Reports() {
                                 <CardContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pb: 1, height: '100%' }}>
                                     <Box>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                                            <Box sx={{ 
-                                                p: 1.5, 
-                                                bgcolor: report.color, 
-                                                color: 'white', 
-                                                borderRadius: 2, 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center' 
+                                            <Box sx={{
+                                                p: 1.5,
+                                                bgcolor: report.color,
+                                                color: 'white',
+                                                borderRadius: 2,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
                                             }}>
                                                 <ReportIcon sx={{ fontSize: 24 }} />
                                             </Box>
@@ -283,12 +302,12 @@ export default function Reports() {
 
                                     <Stack direction="column" spacing={1} sx={{ mt: 'auto' }}>
                                         <Chip label={report.type} size="small" variant="outlined" />
-                                        <Button 
+                                        <Button
                                             fullWidth
                                             variant="contained"
-                                            startIcon={<VisibilityIcon />} 
+                                            startIcon={<VisibilityIcon />}
                                             onClick={() => handlePreview(report.id)}
-                                            sx={{ 
+                                            sx={{
                                                 bgcolor: report.color,
                                                 '&:hover': { bgcolor: report.color, opacity: 0.9 }
                                             }}
@@ -304,8 +323,8 @@ export default function Reports() {
             </Grid>
 
             {/* Preview Dialog */}
-            <Dialog 
-                open={previewOpen} 
+            <Dialog
+                open={previewOpen}
                 onClose={() => setPreviewOpen(false)}
                 maxWidth="lg"
                 fullWidth
@@ -313,8 +332,8 @@ export default function Reports() {
                     sx: { minHeight: '80vh' }
                 }}
             >
-                <DialogTitle sx={{ 
-                    bgcolor: currentReportInfo?.color, 
+                <DialogTitle sx={{
+                    bgcolor: currentReportInfo?.color,
                     color: 'white',
                     display: 'flex',
                     alignItems: 'center',
@@ -348,14 +367,14 @@ export default function Reports() {
                             />
                         </Box>
                     )}
-                    
+
                     {renderPreviewContent()}
                 </DialogContent>
 
                 <DialogActions sx={{ p: 2, bgcolor: '#f9f9f9' }}>
                     <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-                    <Button 
-                        variant="contained" 
+                    <Button
+                        variant="contained"
                         startIcon={<DownloadIcon />}
                         onClick={() => currentReport && handleExport(currentReport)}
                         disabled={loading || getReportData(currentReport!).length === 0}
@@ -366,22 +385,22 @@ export default function Reports() {
             </Dialog>
 
             {/* Snackbar */}
-            <Snackbar 
-                open={snackbar.open} 
-                autoHideDuration={4000} 
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
                 onClose={() => setSnackbar({ ...snackbar, open: false })}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             >
-                <Paper 
-                    elevation={6} 
-                    sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                <Paper
+                    elevation={6}
+                    sx={{
+                        p: 2,
+                        display: 'flex',
+                        alignItems: 'center',
                         gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
-                                       snackbar.severity === 'error' ? '#f44336' : 
-                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
+                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
+                            snackbar.severity === 'error' ? '#f44336' :
+                                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
                         color: 'white'
                     }}
                 >
@@ -399,7 +418,7 @@ export default function Reports() {
 
 // Stock Report Preview Component
 function StockReportPreview({ data, products, searchTerm }: { data: any[], products: Product[], searchTerm: string }) {
-    const filtered = products.filter(p => 
+    const filtered = products.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -486,9 +505,9 @@ function StockReportPreview({ data, products, searchTerm }: { data: any[], produ
                                         {Object.entries(row).map(([key, value]: any, i) => (
                                             <TableCell key={i}>
                                                 {key === 'Status' ? (
-                                                    <Chip 
-                                                        label={value} 
-                                                        size="small" 
+                                                    <Chip
+                                                        label={value}
+                                                        size="small"
                                                         color={value === 'Low Stock' ? 'error' : 'success'}
                                                         variant="outlined"
                                                     />
@@ -653,9 +672,9 @@ function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { d
     const chartData = Object.entries(vendorPurchases)
         .sort(([, a], [, b]) => b - a)
         .slice(0, 8)
-        .map(([name, value]) => ({ 
-            name: name.length > 15 ? name.substring(0, 15) + '...' : name, 
-            amount: value 
+        .map(([name, value]) => ({
+            name: name.length > 15 ? name.substring(0, 15) + '...' : name,
+            amount: value
         }));
 
     return (
@@ -750,15 +769,15 @@ function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { d
 function ProfitLossPreview({ data, transactions }: { data: any[], transactions: Transaction[] }) {
     const sales = transactions.filter(t => t.type === 'sale');
     const purchases = transactions.filter(t => t.type === 'purchase');
-    
-    const totalRevenue = sales.reduce((sum, t) => sum + t.total_amount, 0);
-    const totalCost = purchases.reduce((sum, t) => sum + t.total_amount, 0);
-    const profit = totalRevenue - totalCost;
-    const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
+
+    const reportData = data[0] || {};
+    const totalRevenue = parseFloat(reportData['Total Sales Revenue'] || '0');
+    const totalCOGS = parseFloat(reportData['Total COGS'] || '0');
+    const profit = parseFloat(reportData['Gross Profit'] || '0');
 
     const chartData = [
         { name: 'Sales Revenue', value: totalRevenue, fill: '#4caf50' },
-        { name: 'Purchase Cost', value: totalCost, fill: '#f44336' }
+        { name: 'Cost of Goods Sold', value: totalCOGS, fill: '#f44336' }
     ];
 
     return (
@@ -784,12 +803,12 @@ function ProfitLossPreview({ data, transactions }: { data: any[], transactions: 
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <TrendingDownIcon sx={{ color: '#f44336' }} />
-                                <Typography variant="body2" color="text.secondary">Total Cost</Typography>
+                                <Typography variant="body2" color="text.secondary">Cost of Goods Sold (COGS)</Typography>
                             </Box>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#f44336' }}>
-                                {totalCost.toFixed(2)}
+                                {totalCOGS.toFixed(2)}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">{purchases.length} transactions</Typography>
+                            <Typography variant="caption" color="text.secondary">Based on products sold</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
