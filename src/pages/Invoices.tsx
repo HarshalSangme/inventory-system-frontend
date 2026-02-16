@@ -38,6 +38,7 @@ import { getInvoices, downloadInvoicePDF } from '../services/invoiceService';
 
 const PAYMENT_TERMS_OPTIONS = [
   'CASH',
+  'BANK',
   'CREDIT',
   'NET 15',
   'NET 30',

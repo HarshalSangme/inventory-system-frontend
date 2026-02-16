@@ -172,12 +172,12 @@ export default function Transactions({ type }: TransactionsProps) {
             {/* View Transaction Dialog */}
             <Dialog open={detailModalOpen} onClose={() => setDetailModalOpen(false)} fullWidth maxWidth="md">
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h6">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
+                    {/* <Typography variant="h6">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
                     {selectedTransaction?.type === 'sale' && (
                         <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint}>
                             Print Invoice
                         </Button>
-                    )}
+                    )} */}
                 </DialogTitle>
                 <DialogContent dividers>
                     {selectedTransaction && (

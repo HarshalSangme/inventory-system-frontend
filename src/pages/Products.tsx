@@ -164,11 +164,27 @@ export default function Products() {
         }
     };
 
+    const generateNextSKU = () => {
+        if (products.length === 0) return 'SKU-001';
+
+        const skuNumbers = products
+            .map(p => {
+                const match = p.sku.match(/SKU-(\d+)/i);
+                return match ? parseInt(match[1]) : 0;
+            })
+            .filter(n => n > 0);
+
+        if (skuNumbers.length === 0) return 'SKU-001';
+
+        const nextNumber = Math.max(...skuNumbers) + 1;
+        return `SKU-${String(nextNumber).padStart(3, '0')}`;
+    };
+
     const openAddModal = () => {
         setEditingId(null);
         setFormData({
             name: '',
-            sku: '',
+            sku: generateNextSKU(),
             price: 0,
             cost_price: 0,
             stock_quantity: 0,
