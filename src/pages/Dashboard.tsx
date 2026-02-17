@@ -52,11 +52,8 @@ export default function Dashboard() {
     if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography>Loading dashboard...</Typography></Box>;
     if (!stats) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="error">Error loading dashboard.</Typography></Box>;
 
-    // Prepare chart data with realistic values if empty
-    const chartData = stats.top_products.length > 0
-        ? stats.top_products
-        : [{ name: 'No Data', value: 0 }];
-
+    // Prepare chart data (no static fallback)
+    const chartData = stats.top_products;
     const pieData = [
         { name: 'In Stock', value: Math.max(stats.total_products - stats.low_stock_items, 0), color: '#4caf50' },
         { name: 'Low Stock', value: stats.low_stock_items, color: '#ff9800' }
@@ -93,7 +90,7 @@ export default function Dashboard() {
                     <Card elevation={2} sx={{ height: '100%' }}>
                         <CardHeader title="Top Selling Products" subheader="Sales by product" sx={{ pb: 0.5, '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
                         <CardContent sx={{ height: 280 }}>
-                            {chartData.length > 0 && chartData[0].value !== 0 ? (
+                            {chartData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={chartData} margin={{ top: 8, right: 20, left: 0, bottom: 24 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
