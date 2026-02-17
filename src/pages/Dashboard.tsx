@@ -52,8 +52,12 @@ export default function Dashboard() {
     if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography>Loading dashboard...</Typography></Box>;
     if (!stats) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="error">Error loading dashboard.</Typography></Box>;
 
-    // Prepare chart data (no static fallback)
-    const chartData = stats.top_products;
+    // Prepare chart data
+    const chartData = stats.top_stock_products.map(p => ({
+        name: p.name,
+        value: p.stock_quantity,
+        min_stock_level: p.min_stock_level
+    }));
     const pieData = [
         { name: 'In Stock', value: Math.max(stats.total_products - stats.low_stock_items, 0), color: '#4caf50' },
         { name: 'Low Stock', value: stats.low_stock_items, color: '#ff9800' }
@@ -70,25 +74,25 @@ export default function Dashboard() {
             {/* KPI Cards Grid - Responsive */}
             <Grid container spacing={{ xs: 1.5, sm: 1.5, md: 2 }} sx={{ mb: 2.5 }}>
                 <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Total Customers" value={stats.total_customers.toString()} subtext="Active partners" icon={PeopleIcon} color="#2196f3" trend={1} />
+                    <StatCard title="Total Stock Value (Cost)" value={stats.total_stock_value.toFixed(2)} subtext="Inventory cost" icon={InventoryIcon} color="#2196f3" trend={1} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Total Revenue" value={`${stats.total_sales.toFixed(0)}`} subtext="Lifetime sales" icon={InventoryIcon} color="#4caf50" trend={1} />
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <StatCard title="Total Products" value={stats.total_products.toString()} subtext="In inventory" icon={BarChart3} color="#9c27b0" trend={0} />
+                    <StatCard title="Total Retail Value" value={stats.total_retail_value.toFixed(2)} subtext="Retail value" icon={BarChart3} color="#4caf50" trend={1} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                     <StatCard title="Low Stock Items" value={stats.low_stock_items.toString()} subtext="Requires attention" icon={WarningIcon} color="#f44336" trend={-1} />
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                    <StatCard title="Total Products" value={stats.total_products.toString()} subtext="In inventory" icon={PeopleIcon} color="#9c27b0" trend={0} />
                 </Grid>
             </Grid>
 
             {/* Charts Section */}
             <Grid container spacing={{ xs: 1.5, sm: 1.5, md: 2 }} sx={{ mb: 2.5 }}>
-                {/* Bar Chart - Top Products */}
+                {/* Bar Chart - Top Stocked Products */}
                 <Grid item xs={12} md={8} lg={8}>
                     <Card elevation={2} sx={{ height: '100%' }}>
-                        <CardHeader title="Top Selling Products" subheader="Sales by product" sx={{ pb: 0.5, '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
+                        <CardHeader title="Stock Levels (Top 10 Products)" subheader="Current vs Min Level" sx={{ pb: 0.5, '& .MuiCardHeader-title': { fontSize: 14 }, '& .MuiCardHeader-subheader': { fontSize: 11 } }} />
                         <CardContent sx={{ height: 280 }}>
                             {chartData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
@@ -96,13 +100,26 @@ export default function Dashboard() {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} tick={{ fontSize: 10 }} />
                                         <YAxis tick={{ fontSize: 10 }} />
-                                        <Tooltip contentStyle={{ borderRadius: 6, border: 'none', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', fontSize: 11 }} />
+                                        <Tooltip content={({ active, payload }) => {
+                                            if (active && payload && payload.length) {
+                                                const p = payload[0].payload;
+                                                return (
+                                                    <div style={{ background: '#fff', border: '1px solid #eee', borderRadius: 6, padding: 8, fontSize: 12 }}>
+                                                        <div style={{ fontWeight: 600 }}>{p.name}</div>
+                                                        <div style={{ color: '#2196f3' }}>Current Stock : {p.value}</div>
+                                                        <div style={{ color: '#f44336' }}>Min Level : {p.min_stock_level}</div>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        }} />
                                         <Bar dataKey="value" fill="#2196f3" radius={[6, 6, 0, 0]} />
+                                        <Bar dataKey="min_stock_level" fill="#f44336" radius={[6, 6, 0, 0]} />
                                     </BarChart>
                                 </ResponsiveContainer>
                             ) : (
                                 <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary' }}>
-                                    <Typography>No sales data yet</Typography>
+                                    <Typography>No stock data yet</Typography>
                                 </Box>
                             )}
                         </CardContent>
