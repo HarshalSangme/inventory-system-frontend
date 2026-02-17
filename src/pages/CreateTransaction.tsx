@@ -24,6 +24,7 @@ import {
 } from '@mui/material';
 import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
+import { getCategories, type Category } from '../services/categoryService';
 import { getPartners, type Partner } from '../services/partnerService';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -39,6 +40,8 @@ interface CreateTransactionProps {
 export default function CreateTransaction({ type, onClose, onSuccess }: CreateTransactionProps) {
     const [partners, setPartners] = useState<Partner[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
     const [items, setItems] = useState<TransactionItem[]>([]);
     const [vatPercent, setVatPercent] = useState<number>(0);
@@ -58,9 +61,14 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     }, []);
 
     const loadData = async () => {
-        const [pData, prodData] = await Promise.all([getPartners(), getProducts()]);
+        const [pData, prodData, catData] = await Promise.all([
+            getPartners(),
+            getProducts(),
+            getCategories()
+        ]);
         setPartners(pData.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
         setProducts(prodData);
+        setCategories(catData);
     };
 
     const addItem = () => {
@@ -159,6 +167,9 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
         }
     };
 
+    // Filter products by selected category for dropdowns
+    const filteredProducts = categoryFilter === '' ? products : products.filter(p => p.category_id === categoryFilter);
+
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             {/* Header Section */}
@@ -198,6 +209,24 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                             {grandTotal.toFixed(3)} <Typography component="span" variant="caption">BHD</Typography>
                         </Typography>
                     </Paper>
+                </Grid>
+            </Grid>
+
+            {/* Category Filter */}
+            <Grid container spacing={2} sx={{ mb: 1 }}>
+                <Grid item xs={12} md={6}>
+                    <TextField
+                        select
+                        fullWidth
+                        label="Filter by Category"
+                        value={categoryFilter}
+                        onChange={e => setCategoryFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                    >
+                        <MenuItem value="">All Categories</MenuItem>
+                        {categories.map(cat => (
+                            <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                        ))}
+                    </TextField>
                 </Grid>
             </Grid>
 
@@ -251,7 +280,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                                 };
                                                 setItems(newItems);
                                             }} size="small" sx={{ flexGrow: 1 }}>
-                                                {products.filter(p => {
+                                                {filteredProducts.filter(p => {
                                                     if (type !== 'sale') return true;
                                                     const metadataAllocated = items.reduce((sum, i, idx) => {
                                                         return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;

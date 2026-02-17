@@ -37,9 +37,11 @@ import {
     Snackbar,
     Checkbox,
     Tooltip,
-    CircularProgress
+    CircularProgress,
+    MenuItem
 } from '@mui/material';
-import { getProducts, type Product, createProduct, updateProduct, deleteProduct, importProducts, bulkDeleteProducts } from '../services/productService';
+import { getProducts, type Product, type ProductForm, createProduct, updateProduct, deleteProduct, importProducts, bulkDeleteProducts } from '../services/productService';
+import { getCategories, createCategory, deleteCategory, type Category } from '../services/categoryService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Products() {
@@ -47,6 +49,7 @@ export default function Products() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
@@ -75,19 +78,30 @@ export default function Products() {
     const [uploadMessage, setUploadMessage] = useState('');
     const [dragActive, setDragActive] = useState(false);
 
+
+    // Category State
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [categoryLoading, setCategoryLoading] = useState(false);
+    const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+    const [newCategoryName, setNewCategoryName] = useState('');
+    const [categoryError, setCategoryError] = useState('');
+
     // Form State
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<ProductForm>({
         name: '',
         sku: '',
         price: 0,
         cost_price: 0,
         stock_quantity: 0,
         min_stock_level: 5,
-        description: ''
+        description: '',
+        category_id: null
     });
+
 
     useEffect(() => {
         loadProducts();
+        loadCategories();
     }, []);
 
     const loadProducts = async () => {
@@ -102,6 +116,19 @@ export default function Products() {
             setLoading(false);
         }
     };
+
+    const loadCategories = async () => {
+        setCategoryLoading(true);
+        try {
+            const data = await getCategories();
+            setCategories(data);
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Failed to load categories', severity: 'error' });
+        } finally {
+            setCategoryLoading(false);
+        }
+    };
+
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -124,7 +151,8 @@ export default function Products() {
                 cost_price: 0,
                 stock_quantity: 0,
                 min_stock_level: 5,
-                description: ''
+                description: '',
+                category_id: null
             });
         } catch (error) {
             console.error('Failed to create/update product', error);
@@ -133,6 +161,7 @@ export default function Products() {
             setSaving(false);
         }
     };
+
 
     const handleEdit = (product: Product) => {
         setEditingId(product.id);
@@ -143,7 +172,8 @@ export default function Products() {
             cost_price: product.cost_price,
             stock_quantity: product.stock_quantity,
             min_stock_level: product.min_stock_level,
-            description: product.description || ''
+            description: product.description || '',
+            category_id: product.category_id || null
         });
         setIsModalOpen(true);
     };
@@ -334,10 +364,12 @@ export default function Products() {
         setUploadProgress(0);
     };
 
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredProducts = products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = categoryFilter === '' || (p.category_id === categoryFilter);
+        return matchesSearch && matchesCategory;
+    });
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -376,7 +408,7 @@ export default function Products() {
 
             {/* Search & Filter */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} md={6}>
                     <TextField
                         fullWidth
                         placeholder="Search by name or SKU..."
@@ -392,10 +424,27 @@ export default function Products() {
                         sx={{ backgroundColor: '#fff' }}
                     />
                 </Grid>
-                <Grid item xs={12} md={4}>
-                    <Stack direction="row" spacing={1}>
-                        <Button fullWidth variant="outlined" startIcon={<FilterListIcon />}>Filter</Button>
-                    </Stack>
+                <Grid item xs={12} md={6}>
+                    <TextField
+                        select
+                        fullWidth
+                        label="Filter by Category"
+                        value={categoryFilter}
+                        onChange={e => setCategoryFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                        sx={{ backgroundColor: '#fff' }}
+                        InputProps={{
+                            startAdornment: (
+                                <InputAdornment position="start">
+                                    <FilterListIcon />
+                                </InputAdornment>
+                            )
+                        }}
+                    >
+                        <MenuItem value="">All Categories</MenuItem>
+                        {categories.map(cat => (
+                            <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                        ))}
+                    </TextField>
                 </Grid>
             </Grid>
 
@@ -420,6 +469,7 @@ export default function Products() {
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Product Name</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Category</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Price</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Stock</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Status</TableCell>
@@ -437,6 +487,7 @@ export default function Products() {
                                             </TableCell>
                                             <TableCell sx={{ fontWeight: 500 }}>{product.name}</TableCell>
                                             <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{product.sku}</Typography></TableCell>
+                                            <TableCell>{product.category?.name || <span style={{ color: '#aaa' }}>Uncategorized</span>}</TableCell>
                                             <TableCell align="right" sx={{ fontWeight: 400, color: '#2e7d32' }}>{product.price}</TableCell>
                                             <TableCell align="right">{product.stock_quantity}</TableCell>
                                             <TableCell>
@@ -482,6 +533,80 @@ export default function Products() {
                     <Box component="form" id="product-form" onSubmit={handleCreate} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
                         <TextField required fullWidth label="Product Name" placeholder="e.g., Laptop" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                         <TextField required fullWidth label="SKU / Barcode" placeholder="e.g., SKU001" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={10}>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    label="Category (Vehicle Type)"
+                                    value={formData.category_id ?? ''}
+                                    onChange={e => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
+                                    disabled={categoryLoading}
+                                    helperText={categoryLoading ? 'Loading categories...' : ''}
+                                >
+                                    <MenuItem value="">Uncategorized</MenuItem>
+                                    {categories.map(cat => (
+                                        <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+                            <Grid item xs={2}>
+                                <Button variant="outlined" size="small" onClick={() => setCategoryDialogOpen(true)} sx={{ minWidth: 0, px: 1 }}>
+                                    Manage
+                                </Button>
+                            </Grid>
+                        </Grid>
+                                    {/* Category Management Dialog */}
+                                    <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="xs" fullWidth>
+                                        <DialogTitle>Manage Categories</DialogTitle>
+                                        <DialogContent>
+                                            <Box display="flex" gap={1} mb={2}>
+                                                <TextField
+                                                    label="New Category Name"
+                                                    value={newCategoryName}
+                                                    onChange={e => setNewCategoryName(e.target.value)}
+                                                    fullWidth
+                                                    error={!!categoryError}
+                                                    helperText={categoryError}
+                                                />
+                                                <Button
+                                                    variant="contained"
+                                                    onClick={async () => {
+                                                        if (!newCategoryName.trim()) {
+                                                            setCategoryError('Name required');
+                                                            return;
+                                                        }
+                                                        setCategoryError('');
+                                                        try {
+                                                            await createCategory({ name: newCategoryName });
+                                                            setNewCategoryName('');
+                                                            await loadCategories();
+                                                        } catch {
+                                                            setCategoryError('Failed to add');
+                                                        }
+                                                    }}
+                                                >
+                                                    Add
+                                                </Button>
+                                            </Box>
+                                            <Box>
+                                                {categories.map(cat => (
+                                                    <Box key={cat.id} display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                                                        <span>{cat.name}</span>
+                                                        <IconButton size="small" color="error" onClick={async () => {
+                                                            await deleteCategory(cat.id);
+                                                            await loadCategories();
+                                                        }}>
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Box>
+                                                ))}
+                                            </Box>
+                                        </DialogContent>
+                                        <DialogActions>
+                                            <Button onClick={() => setCategoryDialogOpen(false)}>Close</Button>
+                                        </DialogActions>
+                                    </Dialog>
                         <Grid container spacing={2}>
                             <Grid item xs={6}>
                                 <TextField required fullWidth label="Selling Price" type="number" inputProps={{ step: '0.01', min: '0' }} value={formData.price} onChange={e => setFormData({ ...formData, price: Number(e.target.value) })} />
