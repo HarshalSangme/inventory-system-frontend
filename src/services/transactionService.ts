@@ -1,3 +1,12 @@
+export const updateTransaction = async (id: number, data: Partial<TransactionCreate>) => {
+    const response = await api.put<Transaction>(`/transactions/${id}`, data);
+    return response.data;
+};
+
+export const deleteTransaction = async (id: number) => {
+    const response = await api.delete(`/transactions/${id}`);
+    return response.data;
+};
 import api from './api';
 
 export interface TransactionItem {

@@ -32,21 +32,49 @@ import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
+
+// Type-only import must be at the top for verbatimModuleSyntax
+import type { Transaction } from '../services/transactionService';
+
 interface CreateTransactionProps {
     type: 'purchase' | 'sale';
     onClose: () => void;
     onSuccess: () => void;
+    editData?: Transaction;
+    onEdit?: (data: TransactionCreate) => void;
 }
 
-export default function CreateTransaction({ type, onClose, onSuccess }: CreateTransactionProps) {
+export default function CreateTransaction({ type, onClose, onSuccess, editData, onEdit }: CreateTransactionProps) {
     const { role } = useUser();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
-    const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>('');
-    const [items, setItems] = useState<TransactionItem[]>([]);
-    const [vatPercent, setVatPercent] = useState<number>(0);
+    const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>(editData ? editData.partner_id : '');
+    const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map(item => ({
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price: item.price,
+        discount: item.discount || 0
+    })) : []);
+    const [vatPercent, setVatPercent] = useState<number>(editData ? editData.vat_percent || 0 : 0);
+    // When editData changes (e.g., dialog opens for a new transaction), update form state
+    useEffect(() => {
+        if (editData) {
+            setSelectedPartnerId(editData.partner_id);
+            setItems(editData.items.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                discount: item.discount || 0
+            })));
+            setVatPercent(editData.vat_percent || 0);
+        } else {
+            setSelectedPartnerId('');
+            setItems([]);
+            setVatPercent(0);
+        }
+    }, [editData]);
 
     // Snackbar State
     const [snackbar, setSnackbar] = useState<{
@@ -164,12 +192,17 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
         };
 
         try {
-            await createTransaction(transaction);
-            setSnackbar({ open: true, message: 'Transaction created successfully', severity: 'success' });
-            setTimeout(() => onSuccess(), 1000);
+            if (editData && onEdit) {
+                await onEdit(transaction);
+                setSnackbar({ open: true, message: 'Transaction updated successfully', severity: 'success' });
+            } else {
+                await createTransaction(transaction);
+                setSnackbar({ open: true, message: 'Transaction created successfully', severity: 'success' });
+                setTimeout(() => onSuccess(), 1000);
+            }
         } catch (error) {
-            console.error('Failed to create transaction', error);
-            setSnackbar({ open: true, message: 'Failed to create transaction', severity: 'error' });
+            console.error('Failed to save transaction', error);
+            setSnackbar({ open: true, message: 'Failed to save transaction', severity: 'error' });
         } finally {
             setSubmitting(false);
         }
@@ -456,7 +489,11 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                         '&:hover': { background: 'linear-gradient(135deg, #0d1257 0%, #1a237e 100%)' }
                     }}
                 >
-                    {submitting ? 'Processing...' : `Complete ${type === 'sale' ? 'Sale' : 'Purchase'}`}
+                    {submitting
+                        ? 'Processing...'
+                        : editData
+                            ? `Update ${type === 'sale' ? 'Sale' : 'Purchase'}`
+                            : `Complete ${type === 'sale' ? 'Sale' : 'Purchase'}`}
                 </Button>
             </Box>
 
