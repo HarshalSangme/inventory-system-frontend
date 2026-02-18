@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
@@ -38,6 +39,7 @@ interface PartnersProps {
 }
 
 export default function Partners({ type }: PartnersProps) {
+    const { role } = useUser();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -168,7 +170,7 @@ export default function Partners({ type }: PartnersProps) {
                     <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a' }}>{title}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your {title.toLowerCase()}</Typography>
                 </Box>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large">
+                <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large" disabled={role === 'viewonly'}>
                     Add {type === 'customer' ? 'Customer' : 'Vendor'}
                 </Button>
             </Box>
@@ -214,8 +216,8 @@ export default function Partners({ type }: PartnersProps) {
                                         <TableCell>{partner.phone || '-'}</TableCell>
                                         <TableCell>{partner.address || '-'}</TableCell>
                                         <TableCell align="center">
-                                            <IconButton size="small" color="primary" onClick={() => handleEdit(partner)}><EditIcon fontSize="small" /></IconButton>
-                                            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(partner.id)}><DeleteIcon fontSize="small" /></IconButton>
+                                            <IconButton size="small" color="primary" onClick={() => handleEdit(partner)} disabled={role === 'viewonly'}><EditIcon fontSize="small" /></IconButton>
+                                            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(partner.id)} disabled={role === 'viewonly'}><DeleteIcon fontSize="small" /></IconButton>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -237,10 +239,10 @@ export default function Partners({ type }: PartnersProps) {
                 <DialogTitle sx={{ fontWeight: 400, py: 2 }}>{editingId ? `Edit ${type === 'customer' ? 'Customer' : 'Vendor'}` : `Add New ${type === 'customer' ? 'Customer' : 'Vendor'}`}</DialogTitle>
                 <DialogContent>
                     <Box component="form" id="partner-form" onSubmit={handleCreate} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
-                        <TextField required fullWidth label="Name" placeholder="Full name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                        <TextField fullWidth label="Email" type="email" placeholder="Email address" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
-                        <TextField fullWidth label="Phone" placeholder="Contact number" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
-                        <TextField fullWidth label="Address" multiline rows={3} placeholder="Full address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                        <TextField required fullWidth label="Name" placeholder="Full name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField fullWidth label="Email" type="email" placeholder="Email address" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField fullWidth label="Phone" placeholder="Contact number" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField fullWidth label="Address" multiline rows={3} placeholder="Full address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} disabled={role === 'viewonly'} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
@@ -249,7 +251,7 @@ export default function Partners({ type }: PartnersProps) {
                         type="submit" 
                         form="partner-form" 
                         variant="contained"
-                        disabled={saving}
+                        disabled={saving || role === 'viewonly'}
                         startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
                     >
                         {saving ? 'Saving...' : (editingId ? 'Update' : 'Save')}

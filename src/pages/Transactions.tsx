@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -33,6 +34,7 @@ interface TransactionsProps {
 }
 
 export default function Transactions({ type }: TransactionsProps) {
+    const { role } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ export default function Transactions({ type }: TransactionsProps) {
                     <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a' }}>{title}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage {title.toLowerCase()} transactions</Typography>
                 </Box>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIsModalOpen(true)} size="large">
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => role !== 'viewonly' && setIsModalOpen(true)} size="large" disabled={role === 'viewonly'}>
                     New {type === 'purchase' ? 'Purchase' : 'Sale'}
                 </Button>
             </Box>
@@ -174,7 +176,7 @@ export default function Transactions({ type }: TransactionsProps) {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="h6">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
                     {selectedTransaction?.type === 'sale' && (
-                        <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint}>
+                        <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint} disabled={role === 'viewonly'}>
                             Print Invoice
                         </Button>
                     )}
@@ -259,14 +261,18 @@ export default function Transactions({ type }: TransactionsProps) {
             <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} fullWidth maxWidth="lg">
                 <DialogTitle sx={{ fontWeight: 400, py: 2 }}>New {type === 'sale' ? 'Sale' : 'Purchase'}</DialogTitle>
                 <DialogContent sx={{ mt: 2 }}>
-                    <CreateTransaction
-                        type={type}
-                        onClose={() => setIsModalOpen(false)}
-                        onSuccess={() => {
-                            setIsModalOpen(false);
-                            refreshTransactions();
-                        }}
-                    />
+                    {role !== 'viewonly' ? (
+                        <CreateTransaction
+                            type={type}
+                            onClose={() => setIsModalOpen(false)}
+                            onSuccess={() => {
+                                setIsModalOpen(false);
+                                refreshTransactions();
+                            }}
+                        />
+                    ) : (
+                        <Box p={2} color="text.secondary">View only users cannot create transactions.</Box>
+                    )}
                 </DialogContent>
             </Dialog>
         </Box>

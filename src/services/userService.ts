@@ -1,3 +1,8 @@
+// Update user (admin only)
+export const updateUser = async (userId: number, user: { username?: string; password?: string; role?: string }) => {
+  const response = await api.put(`/users/${userId}`, user);
+  return response.data;
+};
 // Add user (admin only)
 export const addUser = async (user: { username: string; password: string; role: string }) => {
   const response = await api.post('/users/', user);

@@ -1,79 +1,95 @@
 import React, { useState, useEffect } from 'react';
+import { useUser } from '../context/UserContext';
 import {
   Box, Typography, Tabs, Tab, Paper, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Avatar, Stack, Chip, Divider, useTheme
 } from '@mui/material';
-import { getAllUsers, addUser } from '../services/userService';
+import { getAllUsers, addUser, updateUser } from '../services/userService';
 import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
 import SettingsIcon from '@mui/icons-material/Settings';
 import AddIcon from '@mui/icons-material/Add';
 import EmailIcon from '@mui/icons-material/Email';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import BadgeIcon from '@mui/icons-material/Badge';
 
 
 const Settings: React.FC = () => {
+  const { role } = useUser();
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'sales' });
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Use backend user info for access control
-    import('../services/userService').then(({ getCurrentUser }) => {
-      getCurrentUser()
-        .then(user => {
-          setIsAdmin(user.role === 'admin');
-        })
-        .catch(() => setIsAdmin(false))
-        .finally(() => setChecked(true));
-    });
-  }, []);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editUser, setEditUser] = useState<any | null>(null);
 
-  useEffect(() => {
-    if (isAdmin) {
-      setLoading(true);
-      getAllUsers()
-        .then(data => setUsers(data))
-        .finally(() => setLoading(false));
+  const handleEditOpen = (user: any) => {
+    if (role === 'viewonly') return;
+    setEditUser({ ...user, password: '' });
+    setEditOpen(true);
+  };
+  const handleEditClose = () => {
+    setEditOpen(false);
+    setEditUser(null);
+  };
+  const handleEditInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditUser({ ...editUser, [e.target.name]: e.target.value });
+  };
+  const handleEditSave = async () => {
+    if (role === 'viewonly') {
+      alert('View Only users cannot edit users.');
+      return;
     }
-  }, [isAdmin]);
+    if (!editUser) return;
+    setLoading(true);
+    try {
+      await updateUser(editUser.id, {
+        username: editUser.username,
+        password: editUser.password || undefined,
+        role: editUser.role,
+      });
+      // Refresh users list
+      const updatedUsers = await getAllUsers();
+      setUsers(updatedUsers);
+      handleEditClose();
+    } catch (error) {
+      alert('Failed to update user.');
+    }
+    setLoading(false);
+  };
 
-  if (!checked) return null;
-  if (!isAdmin) {
-    return (
-      <Box p={4}>
-        <Typography variant="h4" color="error" gutterBottom>
-          <AdminPanelSettingsIcon sx={{ verticalAlign: 'middle', mr: 1 }} /> Access Denied
-        </Typography>
-        <Typography variant="body1">You do not have permission to view this page.</Typography>
-      </Box>
-    );
-  }
-
-  const handleTabChange = (_: any, newValue: number) => setTab(newValue);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => setNewUser({ ...newUser, [e.target.name]: e.target.value });
-  // Placeholder for add user logic (should call backend)
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewUser({ ...newUser, [e.target.name]: e.target.value });
+  };
   const handleAddUser = async () => {
+    if (role === 'viewonly') {
+      alert('View Only users cannot add users.');
+      return;
+    }
     setLoading(true);
     try {
       await addUser(newUser);
-      // Refresh user list after adding
       const updatedUsers = await getAllUsers();
       setUsers(updatedUsers);
+      setOpen(false);
       setNewUser({ username: '', password: '', role: 'sales' });
-    } catch (err) {
-      // Optionally show error
+    } catch (error) {
       alert('Failed to add user.');
     }
-    setOpen(false);
     setLoading(false);
   };
+
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
+
+  useEffect(() => {
+    setLoading(true);
+    getAllUsers()
+      .then((data) => setUsers(data))
+      .catch(() => setUsers([]))
+      .finally(() => setLoading(false));
+  }, []);
 
   const theme = useTheme();
   return (
@@ -123,6 +139,7 @@ const Settings: React.FC = () => {
               startIcon={<AddIcon />}
               onClick={handleOpen}
               sx={{ mb: 2, borderRadius: 2, fontWeight: 600, px: 2, py: 1, fontSize: 14, boxShadow: 1, background: 'linear-gradient(90deg, #6366f1 0%, #60a5fa 100%)' }}
+              disabled={role === 'viewonly'}
             >
               ADD USER/EMPLOYEE
             </Button>
@@ -147,6 +164,8 @@ const Settings: React.FC = () => {
                         key={user.id}
                         hover
                         sx={{ transition: 'background 0.2s', '&:hover': { background: 'rgba(99,102,241,0.06)' } }}
+                        onClick={() => handleEditOpen(user)}
+                        style={{ cursor: role === 'viewonly' ? 'not-allowed' : 'pointer' }}
                       >
                         <TableCell>
                           <Stack direction="row" alignItems="center" spacing={1.2}>
@@ -180,6 +199,34 @@ const Settings: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            {/* Edit User Dialog */}
+            <Dialog open={editOpen} onClose={handleEditClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1.5 } }}>
+              <DialogTitle sx={{ fontWeight: 600, fontSize: 18, textAlign: 'center' }}>Edit User</DialogTitle>
+              <DialogContent>
+                <TextField label="Username" name="username" value={editUser?.username || ''} onChange={handleEditInput} fullWidth sx={{ mb: 1.5 }} />
+                <TextField label="Password (leave blank to keep)" name="password" type="password" value={editUser?.password || ''} onChange={handleEditInput} fullWidth sx={{ mb: 1.5 }} />
+                <TextField
+                  label="Role"
+                  name="role"
+                  value={editUser?.role || ''}
+                  onChange={handleEditInput}
+                  fullWidth
+                  select
+                  SelectProps={{ native: true }}
+                  sx={{ mb: 1.5 }}
+                >
+                  <option value="admin">Admin</option>
+                  <option value="sales">Sales</option>
+                  <option value="manager">Manager</option>
+                  <option value="viewonly">View Only</option>
+                </TextField>
+              </DialogContent>
+              <DialogActions sx={{ justifyContent: 'center' }}>
+                <Button onClick={handleEditClose} variant="outlined" color="secondary">Cancel</Button>
+                <Button onClick={handleEditSave} variant="contained" color="primary" disabled={role === 'viewonly'}>Save</Button>
+              </DialogActions>
+            </Dialog>
+            {/* Add User Dialog */}
             <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3, p: 1.5 } }}>
               <DialogTitle sx={{ fontWeight: 600, fontSize: 18, textAlign: 'center' }}>Add User/Employee</DialogTitle>
               <DialogContent>
@@ -189,11 +236,12 @@ const Settings: React.FC = () => {
               </DialogContent>
               <DialogActions sx={{ justifyContent: 'center' }}>
                 <Button onClick={handleClose} variant="outlined" color="secondary">Cancel</Button>
-                <Button onClick={handleAddUser} variant="contained" color="primary">Add</Button>
+                <Button onClick={handleAddUser} variant="contained" color="primary" disabled={role === 'viewonly'}>Add</Button>
               </DialogActions>
             </Dialog>
           </Box>
         )}
+
         {tab === 1 && (
           <Box>
             <Typography variant="body1">Other settings and options coming soon.</Typography>

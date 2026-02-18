@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useUser } from '../context/UserContext';
 import {
     Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer,
@@ -24,6 +25,7 @@ type ReportType = 'stock' | 'sales' | 'purchase' | 'profit';
 const COLORS = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#00897b', '#00bcd4', '#ff5722', '#3f51b5'];
 
 export default function Reports() {
+    const { role } = useUser();
     const [snackbar, setSnackbar] = useState<{
         open: boolean;
         message: string;
@@ -306,11 +308,12 @@ export default function Reports() {
                                             fullWidth
                                             variant="contained"
                                             startIcon={<VisibilityIcon />}
-                                            onClick={() => handlePreview(report.id)}
+                                            onClick={() => role !== 'viewonly' && handlePreview(report.id)}
                                             sx={{
                                                 bgcolor: report.color,
                                                 '&:hover': { bgcolor: report.color, opacity: 0.9 }
                                             }}
+                                            disabled={role === 'viewonly'}
                                         >
                                             Preview Report
                                         </Button>
@@ -376,8 +379,8 @@ export default function Reports() {
                     <Button
                         variant="contained"
                         startIcon={<DownloadIcon />}
-                        onClick={() => currentReport && handleExport(currentReport)}
-                        disabled={loading || getReportData(currentReport!).length === 0}
+                        onClick={() => currentReport && role !== 'viewonly' && handleExport(currentReport)}
+                        disabled={loading || getReportData(currentReport!).length === 0 || role === 'viewonly'}
                     >
                         Export to CSV
                     </Button>

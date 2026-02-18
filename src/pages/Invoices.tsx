@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import {
   Button,
   Box,
@@ -67,6 +68,7 @@ interface InvoiceEditData {
 // See: backend/app/invoice_pdf.py and POST /transactions/{id}/invoice endpoint
 
 export default function Invoices() {
+  const { role } = useUser();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
   const [downloading, setDownloading] = useState(false);
@@ -205,7 +207,7 @@ export default function Invoices() {
               <Button
                 variant="contained"
                 startIcon={<EditIcon />}
-                disabled={!selected}
+                disabled={!selected || role === 'viewonly'}
                 onClick={handleOpenEditDialog}
                 size="small"
               >
@@ -305,6 +307,7 @@ export default function Invoices() {
                 onChange={(e) => setEditData({ ...editData, invoiceNumber: e.target.value })}
                 size="small"
                 helperText="Format: JOT/YYYY/XXX"
+                disabled={role === 'viewonly'}
               />
             </Grid>
 
@@ -316,6 +319,7 @@ export default function Invoices() {
                   value={editData.paymentTerms}
                   label="Payment Terms"
                   onChange={(e) => setEditData({ ...editData, paymentTerms: e.target.value })}
+                  disabled={role === 'viewonly'}
                 >
                   {PAYMENT_TERMS_OPTIONS.map(term => (
                     <MenuItem key={term} value={term}>{term}</MenuItem>
@@ -334,6 +338,7 @@ export default function Invoices() {
                 onChange={(e) => setEditData({ ...editData, dueDate: e.target.value })}
                 size="small"
                 InputLabelProps={{ shrink: true }}
+                disabled={role === 'viewonly'}
               />
             </Grid>
 
@@ -345,6 +350,7 @@ export default function Invoices() {
                 value={editData.salesPerson}
                 onChange={(e) => setEditData({ ...editData, salesPerson: e.target.value })}
                 size="small"
+                disabled={role === 'viewonly'}
               />
             </Grid>
           </Grid>
@@ -402,7 +408,7 @@ export default function Invoices() {
             variant="contained"
             startIcon={downloading ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfIcon />}
             onClick={handleDownloadPDF}
-            disabled={downloading}
+            disabled={downloading || role === 'viewonly'}
             size="small"
           >
             {downloading ? 'Generating...' : 'Download PDF'}

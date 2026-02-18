@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
@@ -38,6 +39,7 @@ interface CreateTransactionProps {
 }
 
 export default function CreateTransaction({ type, onClose, onSuccess }: CreateTransactionProps) {
+    const { role } = useUser();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -72,6 +74,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     };
 
     const addItem = () => {
+        if (role === 'viewonly') return;
         if (products.length === 0) return;
 
         // Find the first product with available stock if it's a sale
@@ -95,6 +98,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
     };
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
+        if (role === 'viewonly') return;
         const newItems = [...items];
 
         if (field === 'quantity' && type === 'sale') {
@@ -114,12 +118,12 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 }
             }
         }
-
         newItems[index] = { ...newItems[index], [field]: value };
         setItems(newItems);
     };
 
     const removeItem = (index: number) => {
+        if (role === 'viewonly') return;
         setItems(items.filter((_, i) => i !== index));
     };
 
@@ -138,6 +142,10 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (role === 'viewonly') {
+            setSnackbar({ open: true, message: 'View Only users cannot create transactions.', severity: 'error' });
+            return;
+        }
         if (!selectedPartnerId) {
             setSnackbar({ open: true, message: 'Please select a partner', severity: 'warning' });
             return;
@@ -167,6 +175,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
         }
     };
 
+    // ...existing code...
     // Filter products by selected category for dropdowns
     const filteredProducts = categoryFilter === '' ? products : products.filter(p => p.category_id === categoryFilter);
 
@@ -178,7 +187,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>
                         {type === 'sale' ? '👤 Customer' : '🏭 Vendor'}
                     </Typography>
-                    <Select fullWidth value={selectedPartnerId} onChange={e => setSelectedPartnerId(Number(e.target.value))} displayEmpty required size="small">
+                    <Select fullWidth value={selectedPartnerId} onChange={e => setSelectedPartnerId(Number(e.target.value))} displayEmpty required size="small" disabled={role === 'viewonly'}>
                         <MenuItem value="">Select Partner...</MenuItem>
                         {partners.map(p => (
                             <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
@@ -194,6 +203,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                         onChange={e => setVatPercent(Number(e.target.value))}
                         fullWidth
                         size="small"
+                        disabled={role === 'viewonly'}
                     />
                 </Grid>
                 <Grid item xs={6} md={4}>
@@ -221,6 +231,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                         label="Filter by Category"
                         value={categoryFilter}
                         onChange={e => setCategoryFilter(e.target.value === '' ? '' : Number(e.target.value))}
+                        disabled={role === 'viewonly'}
                     >
                         <MenuItem value="">All Categories</MenuItem>
                         {categories.map(cat => (
@@ -268,6 +279,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Select fullWidth value={item.product_id} onChange={e => {
+                                                if (role === 'viewonly') return;
                                                 const pid = Number(e.target.value);
                                                 const prod = products.find(p => p.id === pid);
                                                 const newItems = [...items];
@@ -279,7 +291,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                                     discount: 0
                                                 };
                                                 setItems(newItems);
-                                            }} size="small" sx={{ flexGrow: 1 }}>
+                                            }} size="small" sx={{ flexGrow: 1 }} disabled={role === 'viewonly'}>
                                                 {filteredProducts.filter(p => {
                                                     if (type !== 'sale') return true;
                                                     const metadataAllocated = items.reduce((sum, i, idx) => {
@@ -326,6 +338,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                             onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            disabled={role === 'viewonly'}
                                         />
                                     </TableCell>
                                     <TableCell align="right">
@@ -336,6 +349,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                             onChange={e => updateItem(index, 'price', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            disabled={role === 'viewonly'}
                                         />
                                     </TableCell>
                                     <TableCell align="right">
@@ -346,6 +360,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                             onChange={e => updateItem(index, 'discount', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            disabled={role === 'viewonly'}
                                             sx={{
                                                 '& input': {
                                                     color: item.discount > 0 ? '#e65100' : 'inherit'
@@ -369,7 +384,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                                         </Typography>
                                     </TableCell>
                                     <TableCell>
-                                        <IconButton onClick={() => removeItem(index)} color="error" size="small">
+                                        <IconButton onClick={() => removeItem(index)} color="error" size="small" disabled={role === 'viewonly'}>
                                             <DeleteIcon fontSize="small" />
                                         </IconButton>
                                     </TableCell>
@@ -390,7 +405,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 {/* Add Item Button */}
-                <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" size="small">
+                <Button startIcon={<AddIcon />} onClick={addItem} variant="outlined" size="small" disabled={role === 'viewonly'}>
                     Add Item
                 </Button>
 
@@ -434,7 +449,7 @@ export default function CreateTransaction({ type, onClose, onSuccess }: CreateTr
                 <Button
                     type="submit"
                     variant="contained"
-                    disabled={submitting || items.length === 0}
+                    disabled={submitting || items.length === 0 || role === 'viewonly'}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : null}
                     sx={{
                         background: 'linear-gradient(135deg, #1a237e 0%, #283593 100%)',

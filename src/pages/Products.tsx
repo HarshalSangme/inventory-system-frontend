@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useUser } from '../context/UserContext';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
@@ -44,6 +45,7 @@ import { getCategories, createCategory, deleteCategory, type Category } from '..
 import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Products() {
+    const { role } = useUser();
     const [products, setProducts] = useState<Product[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -131,6 +133,10 @@ export default function Products() {
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (role === 'viewonly') {
+            setSnackbar({ open: true, message: 'View Only users cannot add or edit products.', severity: 'error' });
+            return;
+        }
         setSaving(true);
         try {
             if (editingId) {
@@ -163,6 +169,7 @@ export default function Products() {
 
 
     const handleEdit = (product: Product) => {
+        if (role === 'viewonly') return;
         setEditingId(product.id);
         setFormData({
             name: product.name,
@@ -178,6 +185,10 @@ export default function Products() {
     };
 
     const handleDelete = async (id: number) => {
+        if (role === 'viewonly') {
+            setSnackbar({ open: true, message: 'View Only users cannot delete products.', severity: 'error' });
+            return;
+        }
         setDeleting(true);
         try {
             await deleteProduct(id);
@@ -210,6 +221,7 @@ export default function Products() {
     };
 
     const openAddModal = () => {
+        if (role === 'viewonly') return;
         setEditingId(null);
         setFormData({
             name: '',
@@ -241,13 +253,17 @@ export default function Products() {
     };
 
     const handleBulkDeleteClick = () => {
+        if (role === 'viewonly') return;
         if (selectedIds.length === 0) return;
         setBulkDeleteConfirm(true);
     };
 
     const handleBulkDelete = async () => {
+        if (role === 'viewonly') {
+            setSnackbar({ open: true, message: 'View Only users cannot delete products.', severity: 'error' });
+            return;
+        }
         setBulkDeleteConfirm(false);
-
         try {
             setBulkDeleteLoading(true);
             await bulkDeleteProducts(selectedIds);
@@ -268,6 +284,7 @@ export default function Products() {
 
     // Import Dialog Functions
     const handleImportClick = () => {
+        if (role === 'viewonly') return;
         setImportDialogOpen(true);
         setSelectedFile(null);
         setUploadStatus('idle');
@@ -385,7 +402,7 @@ export default function Products() {
                             color="error"
                             startIcon={bulkDeleteLoading ? <CircularProgress size={16} /> : <DeleteSweepIcon />}
                             onClick={handleBulkDeleteClick}
-                            disabled={bulkDeleteLoading}
+                            disabled={bulkDeleteLoading || role === 'viewonly'}
                             sx={{ mr: 2 }}
                         >
                             Delete {selectedIds.length} Selected
@@ -396,10 +413,11 @@ export default function Products() {
                         startIcon={<CloudUploadIcon />}
                         onClick={handleImportClick}
                         sx={{ mr: 2 }}
+                        disabled={role === 'viewonly'}
                     >
                         Import Data
                     </Button>
-                    <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large">
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={openAddModal} size="large" disabled={role === 'viewonly'}>
                         Add Product
                     </Button>
                 </Box>
@@ -499,14 +517,18 @@ export default function Products() {
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Tooltip title="Edit">
-                                                    <IconButton size="small" color="primary" onClick={() => handleEdit(product)}>
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
+                                                    <span>
+                                                        <IconButton size="small" color="primary" onClick={() => handleEdit(product)} disabled={role === 'viewonly'}>
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
                                                 </Tooltip>
                                                 <Tooltip title="Delete">
-                                                    <IconButton size="small" color="error" onClick={() => setDeleteConfirm(product.id)}>
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
+                                                    <span>
+                                                        <IconButton size="small" color="error" onClick={() => setDeleteConfirm(product.id)} disabled={role === 'viewonly'}>
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
                                                 </Tooltip>
                                             </TableCell>
                                         </TableRow>
