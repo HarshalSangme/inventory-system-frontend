@@ -58,23 +58,27 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
         discount: item.discount || 0
     })) : []);
     const [vatPercent, setVatPercent] = useState<number>(editData ? editData.vat_percent || 0 : 0);
-    // When editData changes (e.g., dialog opens for a new transaction), update form state
+    // When editData or products change, update form state for editing
     useEffect(() => {
-        if (editData) {
+        if (editData && products.length > 0) {
             setSelectedPartnerId(editData.partner_id);
-            setItems(editData.items.map(item => ({
-                product_id: item.product_id,
-                quantity: item.quantity,
-                price: item.price,
-                discount: item.discount || 0
-            })));
+            setItems(editData.items.map(item => {
+                // Find the product to ensure dropdowns and details match
+                const prod = products.find(p => p.id === item.product_id);
+                return {
+                    product_id: item.product_id,
+                    quantity: item.quantity,
+                    price: prod ? prod.price : item.price,
+                    discount: item.discount || 0
+                };
+            }));
             setVatPercent(editData.vat_percent || 0);
-        } else {
+        } else if (!editData) {
             setSelectedPartnerId('');
             setItems([]);
             setVatPercent(0);
         }
-    }, [editData]);
+    }, [editData, products]);
 
     // Snackbar State
     const [snackbar, setSnackbar] = useState<{
