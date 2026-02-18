@@ -115,6 +115,7 @@ export default function Reports() {
                     return filtered.map(p => ({
                         'Product Name': p.name,
                         'SKU': p.sku,
+                        'Category': p.category?.name || '-',
                         'Stock Quantity': p.stock_quantity,
                         'Unit Cost': p.cost_price.toFixed(2),
                         'Unit Price': p.price.toFixed(2),
