@@ -21,7 +21,8 @@ import {
     CircularProgress,
     Divider,
     Chip,
-    Tooltip
+    Tooltip,
+    Autocomplete
 } from '@mui/material';
 import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
@@ -333,41 +334,38 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                                 }}>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Select fullWidth required value={item.product_id} onChange={e => {
-                                                if (role === 'viewonly') return;
-                                                const pid = Number(e.target.value);
-                                                const prod = products.find(p => p.id === pid);
-                                                const newItems = [...items];
-                                                newItems[index] = {
-                                                    ...newItems[index],
-                                                    product_id: pid,
-                                                    price: type === 'sale' ? (prod?.price || 0) : newItems[index].price,
-                                                    quantity: 1,
-                                                    discount: 0
-                                                };
-                                                setItems(newItems);
-                                            }} size="small" sx={{ flexGrow: 1 }} disabled={role === 'viewonly'}>
-                                                {filteredProducts.filter(p => {
+                                            <Autocomplete
+                                                fullWidth
+                                                size="small"
+                                                options={filteredProducts.filter(p => {
                                                     if (type !== 'sale') return true;
                                                     const metadataAllocated = items.reduce((sum, i, idx) => {
                                                         return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
                                                     }, 0);
                                                     const remaining = p.stock_quantity - metadataAllocated;
                                                     return remaining > 0 || p.id === item.product_id;
-                                                }).map(p => {
-                                                    const metadataAllocated = items.reduce((sum, i, idx) => {
-                                                        return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
-                                                    }, 0);
-                                                    const remaining = p.stock_quantity - metadataAllocated;
-                                                    const isOutOfStock = type === 'sale' && remaining <= 0 && p.id !== item.product_id;
-
-                                                    return (
-                                                        <MenuItem key={p.id} value={p.id} disabled={isOutOfStock}>
-                                                            {p.name} {isOutOfStock ? '(Out of Stock)' : ''}
-                                                        </MenuItem>
-                                                    )
                                                 })}
-                                            </Select>
+                                                getOptionLabel={option => option.name}
+                                                value={products.find(p => p.id === item.product_id) || null}
+                                                onChange={(_, newValue) => {
+                                                    if (role === 'viewonly' || !newValue) return;
+                                                    const prod = newValue;
+                                                    const newItems = [...items];
+                                                    newItems[index] = {
+                                                        ...newItems[index],
+                                                        product_id: prod.id,
+                                                        price: type === 'sale' ? (prod.price || 0) : newItems[index].price,
+                                                        quantity: 1,
+                                                        discount: 0
+                                                    };
+                                                    setItems(newItems);
+                                                }}
+                                                renderInput={params => (
+                                                    <TextField {...params} required label="Select Product" placeholder="Type to search..." />
+                                                )}
+                                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                                disabled={role === 'viewonly'}
+                                            />
                                             {selectedProduct && type === 'sale' && (() => {
                                                 const otherRowsUsage = items.reduce((sum, i, idx) => {
                                                     return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
