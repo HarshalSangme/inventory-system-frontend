@@ -153,11 +153,25 @@ export default function Products() {
         }
         setSaving(true);
         try {
+            // Check for SKU uniqueness right before creation
+            let uniqueSKU = formData.sku;
+            const allSKUs = new Set(products.map(p => p.sku.toLowerCase()));
+            if (!editingId) {
+                // If the SKU already exists, find a new one
+                if (allSKUs.has(uniqueSKU.toLowerCase())) {
+                    let nextNumber = 1;
+                    while (allSKUs.has(`sku-${String(nextNumber).padStart(3, '0')}`)) {
+                        nextNumber++;
+                    }
+                    uniqueSKU = `SKU-${String(nextNumber).padStart(3, '0')}`;
+                }
+            }
+            const productToSave = { ...formData, sku: uniqueSKU };
             if (editingId) {
-                await updateProduct(editingId, formData);
+                await updateProduct(editingId, productToSave);
                 setSnackbar({ open: true, message: 'Product updated successfully', severity: 'success' });
             } else {
-                await createProduct(formData);
+                await createProduct(productToSave);
                 setSnackbar({ open: true, message: 'Product created successfully', severity: 'success' });
             }
             setIsModalOpen(false);
