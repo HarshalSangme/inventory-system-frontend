@@ -1,4 +1,11 @@
 import React, { useEffect, useState } from 'react';
+
+// Extend the Window interface to allow __refreshProducts
+declare global {
+    interface Window {
+        __refreshProducts?: () => void;
+    }
+}
 import { useUser } from '../context/UserContext';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
