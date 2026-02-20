@@ -240,6 +240,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                         onChange={e => setVatPercent(Number(e.target.value))}
                         fullWidth
                         size="small"
+                        required
                         disabled={role === 'viewonly'}
                     />
                 </Grid>
@@ -315,7 +316,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                                 }}>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Select fullWidth value={item.product_id} onChange={e => {
+                                            <Select fullWidth required value={item.product_id} onChange={e => {
                                                 if (role === 'viewonly') return;
                                                 const pid = Number(e.target.value);
                                                 const prod = products.find(p => p.id === pid);
@@ -375,6 +376,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                                             onChange={e => updateItem(index, 'quantity', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            required
                                             disabled={role === 'viewonly'}
                                         />
                                     </TableCell>
@@ -386,6 +388,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                                             onChange={e => updateItem(index, 'price', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            required
                                             disabled={role === 'viewonly'}
                                         />
                                     </TableCell>
@@ -397,6 +400,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                                             onChange={e => updateItem(index, 'discount', Number(e.target.value))}
                                             size="small"
                                             fullWidth
+                                            required
                                             disabled={role === 'viewonly'}
                                             sx={{
                                                 '& input': {

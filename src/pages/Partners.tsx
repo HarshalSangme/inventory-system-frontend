@@ -240,9 +240,9 @@ export default function Partners({ type }: PartnersProps) {
                 <DialogContent>
                     <Box component="form" id="partner-form" onSubmit={handleCreate} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 2 }}>
                         <TextField required fullWidth label="Name" placeholder="Full name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} disabled={role === 'viewonly'} />
-                        <TextField fullWidth label="Email" type="email" placeholder="Email address" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={role === 'viewonly'} />
-                        <TextField fullWidth label="Phone" placeholder="Contact number" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={role === 'viewonly'} />
-                        <TextField fullWidth label="Address" multiline rows={3} placeholder="Full address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField required fullWidth label="Email" type="email" placeholder="Email address" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField required fullWidth label="Phone" placeholder="Contact number" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} disabled={role === 'viewonly'} />
+                        <TextField required fullWidth label="Address" multiline rows={3} placeholder="Full address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} disabled={role === 'viewonly'} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>

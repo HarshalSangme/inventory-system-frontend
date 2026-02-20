@@ -556,20 +556,21 @@ export default function Products() {
                         <TextField required fullWidth label="SKU / Barcode" placeholder="e.g., SKU001" value={formData.sku} onChange={e => setFormData({ ...formData, sku: e.target.value })} />
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={10}>
-                                <TextField
-                                    select
-                                    fullWidth
-                                    label="Category (Vehicle Type)"
-                                    value={formData.category_id ?? ''}
-                                    onChange={e => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
-                                    disabled={categoryLoading}
-                                    helperText={categoryLoading ? 'Loading categories...' : ''}
-                                >
-                                    <MenuItem value="">Uncategorized</MenuItem>
-                                    {categories.map(cat => (
-                                        <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
-                                    ))}
-                                </TextField>
+                                    <TextField
+                                        select
+                                        fullWidth
+                                        required
+                                        label="Category (Vehicle Type)"
+                                        value={formData.category_id ?? ''}
+                                        onChange={e => setFormData({ ...formData, category_id: e.target.value ? Number(e.target.value) : null })}
+                                        disabled={categoryLoading}
+                                        helperText={categoryLoading ? 'Loading categories...' : ''}
+                                    >
+                                        <MenuItem value="">Uncategorized</MenuItem>
+                                        {categories.map(cat => (
+                                            <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                                        ))}
+                                    </TextField>
                             </Grid>
                             <Grid item xs={2}>
                                 <Button variant="outlined" size="small" onClick={() => setCategoryDialogOpen(true)} sx={{ minWidth: 0, px: 1 }}>
@@ -644,7 +645,7 @@ export default function Products() {
                                 <TextField required fullWidth label="Min Stock Level" type="number" inputProps={{ min: '0' }} value={formData.min_stock_level} onChange={e => setFormData({ ...formData, min_stock_level: Number(e.target.value) })} />
                             </Grid>
                         </Grid>
-                        <TextField fullWidth label="Description" multiline rows={3} placeholder="Add product details..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
+                        <TextField required fullWidth label="Description" multiline rows={3} placeholder="Add product details..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} />
                     </Box>
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
