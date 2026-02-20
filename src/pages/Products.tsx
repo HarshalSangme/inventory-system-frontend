@@ -232,23 +232,6 @@ export default function Products() {
         }
     };
 
-    const generateNextSKU = () => {
-        // Collect all used numbers
-        const usedNumbers = new Set(
-            products
-                .map(p => {
-                    const match = p.sku.match(/SKU-(\d+)/i);
-                    return match ? parseInt(match[1]) : null;
-                })
-                .filter((n): n is number => n !== null && !isNaN(n))
-        );
-        // Find the first unused number starting from 1
-        let nextNumber = 1;
-        while (usedNumbers.has(nextNumber)) {
-            nextNumber++;
-        }
-        return `SKU-${String(nextNumber).padStart(3, '0')}`;
-    };
 
     const openAddModal = async () => {
         if (role === 'viewonly') return;
