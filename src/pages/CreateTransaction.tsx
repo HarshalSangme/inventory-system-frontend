@@ -50,6 +50,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
+    const [productSearch, setProductSearch] = useState('');
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>(editData ? editData.partner_id : '');
     const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map(item => ({
         product_id: item.product_id,
@@ -202,19 +203,25 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
             } else {
                 await createTransaction(transaction);
                 setSnackbar({ open: true, message: 'Transaction created successfully', severity: 'success' });
-                setTimeout(() => onSuccess(), 1000);
+                setTimeout(() => {
+                    if (window.__refreshProducts) window.__refreshProducts();
+                    onSuccess();
+                }, 1000);
             }
         } catch (error) {
             console.error('Failed to save transaction', error);
             setSnackbar({ open: true, message: 'Failed to save transaction', severity: 'error' });
         } finally {
             setSubmitting(false);
+            if (window.__refreshProducts) window.__refreshProducts();
         }
     };
 
     // ...existing code...
-    // Filter products by selected category for dropdowns
-    const filteredProducts = categoryFilter === '' ? products : products.filter(p => p.category_id === categoryFilter);
+    // Filter products by selected category and search for dropdowns
+    const filteredProducts = products
+        .filter(p => categoryFilter === '' || p.category_id === categoryFilter)
+        .filter(p => productSearch.trim() === '' || p.name.toLowerCase().includes(productSearch.trim().toLowerCase()));
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -260,7 +267,7 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                 </Grid>
             </Grid>
 
-            {/* Category Filter */}
+            {/* Category Filter & Product Search */}
             <Grid container spacing={2} sx={{ mb: 1 }}>
                 <Grid item xs={12} md={6}>
                     <TextField
@@ -276,6 +283,16 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                             <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
                         ))}
                     </TextField>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                    <TextField
+                        fullWidth
+                        label="Search Product"
+                        placeholder="Type product name..."
+                        value={productSearch}
+                        onChange={e => setProductSearch(e.target.value)}
+                        disabled={role === 'viewonly'}
+                    />
                 </Grid>
             </Grid>
 

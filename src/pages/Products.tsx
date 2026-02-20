@@ -44,6 +44,11 @@ import { getProducts, type Product, type ProductForm, createProduct, updateProdu
 import { getCategories, createCategory, deleteCategory, type Category } from '../services/categoryService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
+export function refreshProductsGlobal() {
+    // This can be imported and called from anywhere to refresh products
+    if (window.__refreshProducts) window.__refreshProducts();
+}
+
 export default function Products() {
     const { role } = useUser();
     const [products, setProducts] = useState<Product[]>([]);
@@ -101,8 +106,10 @@ export default function Products() {
 
 
     useEffect(() => {
+        window.__refreshProducts = loadProducts;
         loadProducts();
         loadCategories();
+        return () => { delete window.__refreshProducts; };
     }, []);
 
     const loadProducts = async () => {
