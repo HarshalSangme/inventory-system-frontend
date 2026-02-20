@@ -250,19 +250,41 @@ export default function Products() {
         return `SKU-${String(nextNumber).padStart(3, '0')}`;
     };
 
-    const openAddModal = () => {
+    const openAddModal = async () => {
         if (role === 'viewonly') return;
         setEditingId(null);
-        setFormData({
-            name: '',
-            sku: generateNextSKU(),
-            price: 0,
-            cost_price: 0,
-            stock_quantity: 0,
-            min_stock_level: 5,
-            description: ''
-        });
-        setIsModalOpen(true);
+        setLoading(true);
+        try {
+            // Fetch latest products to get SKUs
+            const latestProducts = await getProducts();
+            const usedNumbers = new Set(
+                latestProducts
+                    .map(p => {
+                        const match = p.sku.match(/SKU-(\d+)/i);
+                        return match ? parseInt(match[1]) : null;
+                    })
+                    .filter((n): n is number => n !== null && !isNaN(n))
+            );
+            let nextNumber = 1;
+            while (usedNumbers.has(nextNumber)) {
+                nextNumber++;
+            }
+            const nextSKU = `SKU-${String(nextNumber).padStart(3, '0')}`;
+            setFormData({
+                name: '',
+                sku: nextSKU,
+                price: 0,
+                cost_price: 0,
+                stock_quantity: 0,
+                min_stock_level: 5,
+                description: ''
+            });
+            setIsModalOpen(true);
+        } catch (error) {
+            setSnackbar({ open: true, message: 'Failed to fetch SKUs for new product', severity: 'error' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     // Selection Functions
