@@ -166,6 +166,16 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
             showSnackbar('Please add at least one item', 'warning');
             return;
         }
+        // Frontend price validation for sales
+        if (type === 'sale') {
+            for (const item of items) {
+                const product = products.find(p => p.id === item.product_id);
+                if (product && item.price < product.cost_price) {
+                    showSnackbar(`Selling price (${item.price}) cannot be less than cost price (${product.cost_price}) for product '${product.name}'.`, 'error');
+                    return;
+                }
+            }
+        }
         setSubmitting(true);
         const transaction: TransactionCreate = {
             partner_id: Number(selectedPartnerId),

@@ -171,6 +171,12 @@ export default function Products() {
                 }
             }
             const productToSave = { ...formData, sku: uniqueSKU };
+            // Validation for edit: Selling price cannot be less than cost price
+            if (editingId && formData.price < formData.cost_price) {
+                showSnackbar('Selling price cannot be less than cost price.', 'error');
+                setSaving(false);
+                return;
+            }
             if (editingId) {
                 await updateProduct(editingId, productToSave);
                 showSnackbar('Product updated successfully', 'success');
