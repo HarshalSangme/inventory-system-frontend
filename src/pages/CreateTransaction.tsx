@@ -65,11 +65,11 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         if (editData && products.length > 0) {
             setSelectedPartnerId(editData.partner_id);
             setItems(editData.items.map((item: TransactionItem) => {
-                const prod = products.find(p => p.id === item.product_id);
+                // Use the price from the transaction item (editData.items), not the product default
                 return {
                     product_id: item.product_id,
                     quantity: item.quantity,
-                    price: prod ? prod.price : item.price,
+                    price: item.price, // <-- use transaction price
                     discount: item.discount || 0
                 };
             }));
@@ -409,6 +409,11 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             fullWidth
                                             required
                                             disabled={role === 'viewonly'}
+                                            sx={{
+                                                '& input': {
+                                                    color: item.discount > 0 ? '#e65100' : 'inherit'
+                                                }
+                                            }}
                                         />
                                     </TableCell>
                                     <TableCell align="right">
