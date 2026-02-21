@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUser } from '../context/UserContext';
+import { useSnackbar } from '../context/SnackbarContext';
 import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import EditIcon from '@mui/icons-material/Edit';
@@ -25,40 +26,26 @@ import {
     TableRow,
     TextField,
     Typography,
-    Snackbar,
     CircularProgress
 } from '@mui/material';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
 import ConfirmDialog from '../components/ConfirmDialog';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import CloseIcon from '@mui/icons-material/Close';
 
-interface PartnersProps {
-    type: 'customer' | 'vendor';
-}
+type PartnersProps = {
+  type: 'customer' | 'vendor';
+};
 
-export default function Partners({ type }: PartnersProps) {
+const Partners: React.FC<PartnersProps> = ({ type }) => {
     const { role } = useUser();
+    const { showSnackbar } = useSnackbar();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
-
-    // Snackbar State
-    const [snackbar, setSnackbar] = useState<{
-        open: boolean;
-        message: string;
-        severity: 'success' | 'error' | 'info' | 'warning';
-    }>({ open: false, message: '', severity: 'success' });
-
-    // Loading States
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
-
-    // Form State
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -70,23 +57,26 @@ export default function Partners({ type }: PartnersProps) {
         const loadPartners = async () => {
             try {
                 const data = await getPartners();
-                // Filter by type
                 setPartners(data.filter(p => p.type === type));
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Failed to load partners', error);
+                const msg = error?.response?.data?.detail || 'Failed to load partners';
+                showSnackbar(msg, 'error');
             } finally {
                 setLoading(false);
             }
         };
         loadPartners();
-    }, [type]);
+    }, [type, showSnackbar]);
 
     const load = async () => {
         try {
             const data = await getPartners();
             setPartners(data.filter(p => p.type === type));
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to load partners', error);
+            const msg = error?.response?.data?.detail || 'Failed to load partners';
+            showSnackbar(msg, 'error');
         }
     };
 
@@ -96,10 +86,10 @@ export default function Partners({ type }: PartnersProps) {
         try {
             if (editingId) {
                 await updatePartner(editingId, { ...formData, type });
-                setSnackbar({ open: true, message: 'Partner updated successfully', severity: 'success' });
+                showSnackbar('Partner updated successfully', 'success');
             } else {
                 await createPartner({ ...formData, type });
-                setSnackbar({ open: true, message: 'Partner created successfully', severity: 'success' });
+                showSnackbar('Partner created successfully', 'success');
             }
             setIsModalOpen(false);
             setEditingId(null);
@@ -110,9 +100,10 @@ export default function Partners({ type }: PartnersProps) {
                 phone: '',
                 address: ''
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to create partner', error);
-            setSnackbar({ open: true, message: 'Failed to create/update partner', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to create/update partner';
+            showSnackbar(msg, 'error');
         } finally {
             setSaving(false);
         }
@@ -135,10 +126,11 @@ export default function Partners({ type }: PartnersProps) {
             await deletePartner(id);
             setPartners(partners.filter(p => p.id !== id));
             setDeleteConfirm(null);
-            setSnackbar({ open: true, message: 'Partner deleted successfully', severity: 'success' });
-        } catch (error) {
+            showSnackbar('Partner deleted successfully', 'success');
+        } catch (error: any) {
             console.error('Failed to delete partner', error);
-            setSnackbar({ open: true, message: 'Failed to delete partner', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to delete partner';
+            showSnackbar(msg, 'error');
         } finally {
             setDeleting(false);
         }
@@ -156,7 +148,6 @@ export default function Partners({ type }: PartnersProps) {
     };
 
     const title = type === 'customer' ? 'Customers' : 'Vendors';
-
     const filteredPartners = partners.filter(p =>
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -272,35 +263,11 @@ export default function Partners({ type }: PartnersProps) {
                 loading={deleting}
             />
 
-            {/* Snackbar for notifications */}
-            <Snackbar 
-                open={snackbar.open} 
-                autoHideDuration={4000} 
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Paper 
-                    elevation={6} 
-                    sx={{ 
-                        p: 2, 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' : 
-                                       snackbar.severity === 'error' ? '#f44336' : 
-                                       snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
-                        color: 'white'
-                    }}
-                >
-                    {snackbar.severity === 'success' && <CheckCircleIcon />}
-                    {snackbar.severity === 'error' && <ErrorIcon />}
-                    <Typography variant="body2">{snackbar.message}</Typography>
-                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
-                        <CloseIcon fontSize="small" />
-                    </IconButton>
-                </Paper>
-            </Snackbar>
+
         </Box>
     );
-}
+};
+
+export default Partners;
+            {/* Snackbar for notifications */}
 

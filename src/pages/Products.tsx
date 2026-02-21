@@ -7,6 +7,7 @@ declare global {
     }
 }
 import { useUser } from '../context/UserContext';
+import { useSnackbar } from '../context/SnackbarContext';
 import AddIcon from '@mui/icons-material/Add';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import SearchIcon from '@mui/icons-material/Search';
@@ -41,7 +42,6 @@ import {
     Typography,
     Chip,
     LinearProgress,
-    Snackbar,
     Checkbox,
     Tooltip,
     CircularProgress,
@@ -58,6 +58,7 @@ export function refreshProductsGlobal() {
 
 export default function Products() {
     const { role } = useUser();
+    const { showSnackbar } = useSnackbar();
     const [products, setProducts] = useState<Product[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
@@ -75,12 +76,7 @@ export default function Products() {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
-    // Snackbar State
-    const [snackbar, setSnackbar] = useState<{
-        open: boolean;
-        message: string;
-        severity: 'success' | 'error' | 'info' | 'warning';
-    }>({ open: false, message: '', severity: 'success' });
+    // Removed local snackbar state, using global snackbar
 
     // Import Dialog State
     const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -124,9 +120,10 @@ export default function Products() {
             setLoading(true);
             const data = await getProducts();
             setProducts(data);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to load products', error);
-            setSnackbar({ open: true, message: 'Failed to load products', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to load products';
+            showSnackbar(msg, 'error');
         } finally {
             setLoading(false);
         }
@@ -137,8 +134,9 @@ export default function Products() {
         try {
             const data = await getCategories();
             setCategories(data);
-        } catch (error) {
-            setSnackbar({ open: true, message: 'Failed to load categories', severity: 'error' });
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail || 'Failed to load categories';
+            showSnackbar(msg, 'error');
         } finally {
             setCategoryLoading(false);
         }
@@ -148,14 +146,14 @@ export default function Products() {
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
         if (role === 'viewonly') {
-            setSnackbar({ open: true, message: 'View Only users cannot add or edit products.', severity: 'error' });
+            showSnackbar('View Only users cannot add or edit products.', 'error');
             return;
         }
         setSaving(true);
         try {
             // Validation: Selling price cannot be less than cost price
             if (formData.price < formData.cost_price) {
-                setSnackbar({ open: true, message: 'Selling price cannot be less than cost price.', severity: 'error' });
+                showSnackbar('Selling price cannot be less than cost price.', 'error');
                 setSaving(false);
                 return;
             }
@@ -175,10 +173,10 @@ export default function Products() {
             const productToSave = { ...formData, sku: uniqueSKU };
             if (editingId) {
                 await updateProduct(editingId, productToSave);
-                setSnackbar({ open: true, message: 'Product updated successfully', severity: 'success' });
+                showSnackbar('Product updated successfully', 'success');
             } else {
                 await createProduct(productToSave);
-                setSnackbar({ open: true, message: 'Product created successfully', severity: 'success' });
+                showSnackbar('Product created successfully', 'success');
             }
             setIsModalOpen(false);
             setEditingId(null);
@@ -193,9 +191,10 @@ export default function Products() {
                 description: '',
                 category_id: null
             });
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to create/update product', error);
-            setSnackbar({ open: true, message: 'Failed to create/update product', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to create/update product';
+            showSnackbar(msg, 'error');
         } finally {
             setSaving(false);
         }
@@ -220,7 +219,7 @@ export default function Products() {
 
     const handleDelete = async (id: number) => {
         if (role === 'viewonly') {
-            setSnackbar({ open: true, message: 'View Only users cannot delete products.', severity: 'error' });
+            showSnackbar('View Only users cannot delete products.', 'error');
             return;
         }
         setDeleting(true);
@@ -229,10 +228,11 @@ export default function Products() {
             setProducts(products.filter(p => p.id !== id));
             setDeleteConfirm(null);
             setSelectedIds(selectedIds.filter(sid => sid !== id));
-            setSnackbar({ open: true, message: 'Product deleted successfully', severity: 'success' });
-        } catch (error) {
+            showSnackbar('Product deleted successfully', 'success');
+        } catch (error: any) {
             console.error('Failed to delete product', error);
-            setSnackbar({ open: true, message: 'Failed to delete product', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to delete product';
+            showSnackbar(msg, 'error');
         } finally {
             setDeleting(false);
         }
@@ -269,8 +269,9 @@ export default function Products() {
                 description: ''
             });
             setIsModalOpen(true);
-        } catch (error) {
-            setSnackbar({ open: true, message: 'Failed to fetch SKUs for new product', severity: 'error' });
+        } catch (error: any) {
+            const msg = error?.response?.data?.detail || 'Failed to fetch SKUs for new product';
+            showSnackbar(msg, 'error');
         } finally {
             setLoading(false);
         }
@@ -301,7 +302,7 @@ export default function Products() {
 
     const handleBulkDelete = async () => {
         if (role === 'viewonly') {
-            setSnackbar({ open: true, message: 'View Only users cannot delete products.', severity: 'error' });
+            showSnackbar('View Only users cannot delete products.', 'error');
             return;
         }
         setBulkDeleteConfirm(false);
@@ -310,14 +311,11 @@ export default function Products() {
             await bulkDeleteProducts(selectedIds);
             setProducts(products.filter(p => !selectedIds.includes(p.id)));
             setSelectedIds([]);
-            setSnackbar({
-                open: true,
-                message: `Successfully deleted ${selectedIds.length} product(s)`,
-                severity: 'success'
-            });
-        } catch (error) {
+            showSnackbar(`Successfully deleted ${selectedIds.length} product(s)`, 'success');
+        } catch (error: any) {
             console.error('Failed to bulk delete products', error);
-            setSnackbar({ open: true, message: 'Failed to delete products', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to delete products';
+            showSnackbar(msg, 'error');
         } finally {
             setBulkDeleteLoading(false);
         }
@@ -390,7 +388,7 @@ export default function Products() {
             setUploadMessage(result.message || 'Products imported successfully!');
 
             // Show snackbar and reload
-            setSnackbar({ open: true, message: 'Products imported successfully!', severity: 'success' });
+            showSnackbar('Products imported successfully!', 'success');
 
             // Reload products after 1.5 seconds
             setTimeout(async () => {
@@ -408,7 +406,7 @@ export default function Products() {
             setUploadStatus('error');
             const errorMessage = err.response?.data?.detail || 'Failed to import products. Please check the file format.';
             setUploadMessage(errorMessage);
-            setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+            showSnackbar(errorMessage, 'error');
         } finally {
             setUploading(false);
         }
@@ -926,34 +924,7 @@ export default function Products() {
                 </DialogActions>
             </Dialog>
 
-            {/* Snackbar for notifications */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Paper
-                    elevation={6}
-                    sx={{
-                        p: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
-                            snackbar.severity === 'error' ? '#f44336' :
-                                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
-                        color: 'white'
-                    }}
-                >
-                    {snackbar.severity === 'success' && <CheckCircleIcon />}
-                    {snackbar.severity === 'error' && <ErrorIcon />}
-                    <Typography variant="body2">{snackbar.message}</Typography>
-                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
-                        <CloseIcon fontSize="small" />
-                    </IconButton>
-                </Paper>
-            </Snackbar>
+            {/* Global snackbar is now used via SnackbarProvider; local snackbar JSX removed */}
         </Box>
     );
 }

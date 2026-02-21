@@ -1,5 +1,7 @@
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useEffect, useState } from 'react';
 import { useUser } from '../context/UserContext';
+import { useSnackbar } from '../context/SnackbarContext';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
@@ -16,7 +18,6 @@ import {
     TableRow,
     TextField,
     Typography,
-    Snackbar,
     Paper,
     CircularProgress,
     Divider,
@@ -28,44 +29,41 @@ import { createTransaction, type TransactionCreate, type TransactionItem } from 
 import { getProducts, type Product } from '../services/productService';
 import { getCategories, type Category } from '../services/categoryService';
 import { getPartners, type Partner } from '../services/partnerService';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import CloseIcon from '@mui/icons-material/Close';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 
 
 // Type-only import must be at the top for verbatimModuleSyntax
 import type { Transaction } from '../services/transactionService';
 
-interface CreateTransactionProps {
+type CreateTransactionProps = {
     type: 'purchase' | 'sale';
     onClose: () => void;
     onSuccess: () => void;
     editData?: Transaction;
     onEdit?: (data: TransactionCreate) => void;
-}
+};
 
-export default function CreateTransaction({ type, onClose, onSuccess, editData, onEdit }: CreateTransactionProps) {
+const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, onSuccess, editData, onEdit }) => {
     const { role } = useUser();
+    const { showSnackbar } = useSnackbar();
     const [partners, setPartners] = useState<Partner[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
     const [productSearch, setProductSearch] = useState('');
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>(editData ? editData.partner_id : '');
-    const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map(item => ({
+    const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map((item: TransactionItem) => ({
         product_id: item.product_id,
         quantity: item.quantity,
         price: item.price,
         discount: item.discount || 0
     })) : []);
     const [vatPercent, setVatPercent] = useState<number>(editData ? editData.vat_percent || 0 : 0);
-    // When editData or products change, update form state for editing
+    const [submitting, setSubmitting] = useState(false);
+
     useEffect(() => {
         if (editData && products.length > 0) {
             setSelectedPartnerId(editData.partner_id);
-            setItems(editData.items.map(item => {
-                // Find the product to ensure dropdowns and details match
+            setItems(editData.items.map((item: TransactionItem) => {
                 const prod = products.find(p => p.id === item.product_id);
                 return {
                     product_id: item.product_id,
@@ -81,16 +79,6 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
             setVatPercent(0);
         }
     }, [editData, products]);
-
-    // Snackbar State
-    const [snackbar, setSnackbar] = useState<{
-        open: boolean;
-        message: string;
-        severity: 'success' | 'error' | 'info' | 'warning';
-    }>({ open: false, message: '', severity: 'success' });
-
-    // Loading State
-    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -110,8 +98,6 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
     const addItem = () => {
         if (role === 'viewonly') return;
         if (products.length === 0) return;
-
-        // Find the first product with available stock if it's a sale
         let defaultProduct = products[0];
         if (type === 'sale') {
             const firstAvailable = products.find(p => {
@@ -120,34 +106,28 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                 }, 0);
                 return p.stock_quantity > alreadyAllocated;
             });
-
             if (!firstAvailable) {
-                setSnackbar({ open: true, message: 'All products are out of stock or already fully allocated.', severity: 'warning' });
+                showSnackbar('All products are out of stock or already fully allocated.', 'warning');
                 return;
             }
             defaultProduct = firstAvailable;
         }
-
         setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price, discount: 0 }]);
     };
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
         if (role === 'viewonly') return;
         const newItems = [...items];
-
         if (field === 'quantity' && type === 'sale') {
             const currentItem = newItems[index];
             const product = products.find(p => p.id === currentItem.product_id);
-
             if (product) {
                 const otherRowsUsage = items.reduce((sum, item, i) => {
                     return (i !== index && item.product_id === currentItem.product_id) ? sum + item.quantity : sum;
                 }, 0);
-
                 const availableStock = product.stock_quantity - otherRowsUsage;
-
                 if (value > availableStock) {
-                    setSnackbar({ open: true, message: `Cannot add ${value}. Only ${availableStock} remaining for this product.`, severity: 'warning' });
+                    showSnackbar(`Cannot add ${value}. Only ${availableStock} remaining for this product.`, 'warning');
                     return;
                 }
             }
@@ -161,13 +141,11 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
         setItems(items.filter((_, i) => i !== index));
     };
 
-    // Per-item computed values
     const getItemGross = (item: TransactionItem) => item.price * item.quantity;
     const getItemAmtAfterDisc = (item: TransactionItem) => getItemGross(item) - (item.discount || 0);
     const getItemVat = (item: TransactionItem) => getItemAmtAfterDisc(item) * (vatPercent / 100);
     const getItemNet = (item: TransactionItem) => getItemAmtAfterDisc(item) + getItemVat(item);
 
-    // Summary computed values
     const totalGross = items.reduce((sum, item) => sum + getItemGross(item), 0);
     const totalDiscount = items.reduce((sum, item) => sum + (item.discount || 0), 0);
     const totalAmtAfterDisc = totalGross - totalDiscount;
@@ -177,18 +155,17 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (role === 'viewonly') {
-            setSnackbar({ open: true, message: 'View Only users cannot create transactions.', severity: 'error' });
+            showSnackbar('View Only users cannot create transactions.', 'error');
             return;
         }
         if (!selectedPartnerId) {
-            setSnackbar({ open: true, message: 'Please select a partner', severity: 'warning' });
+            showSnackbar('Please select a partner', 'warning');
             return;
         }
         if (items.length === 0) {
-            setSnackbar({ open: true, message: 'Please add at least one item', severity: 'warning' });
+            showSnackbar('Please add at least one item', 'warning');
             return;
         }
-
         setSubmitting(true);
         const transaction: TransactionCreate = {
             partner_id: Number(selectedPartnerId),
@@ -196,30 +173,28 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
             items: items,
             vat_percent: vatPercent
         };
-
         try {
             if (editData && onEdit) {
                 await onEdit(transaction);
-                setSnackbar({ open: true, message: 'Transaction updated successfully', severity: 'success' });
+                showSnackbar('Transaction updated successfully', 'success');
             } else {
                 await createTransaction(transaction);
-                setSnackbar({ open: true, message: 'Transaction created successfully', severity: 'success' });
+                showSnackbar('Transaction created successfully', 'success');
                 setTimeout(() => {
                     if (window.__refreshProducts) window.__refreshProducts();
                     onSuccess();
                 }, 1000);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to save transaction', error);
-            setSnackbar({ open: true, message: 'Failed to save transaction', severity: 'error' });
+            const msg = error?.response?.data?.detail || 'Failed to save transaction';
+            showSnackbar(msg, 'error');
         } finally {
             setSubmitting(false);
             if (window.__refreshProducts) window.__refreshProducts();
         }
     };
 
-    // ...existing code...
-    // Filter products by selected category and search for dropdowns
     const filteredProducts = products
         .filter(p => categoryFilter === '' || p.category_id === categoryFilter)
         .filter(p => productSearch.trim() === '' || p.name.toLowerCase().includes(productSearch.trim().toLowerCase()));
@@ -520,34 +495,8 @@ export default function CreateTransaction({ type, onClose, onSuccess, editData, 
                 </Button>
             </Box>
 
-            {/* Snackbar for notifications */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            >
-                <Paper
-                    elevation={6}
-                    sx={{
-                        p: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1,
-                        backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
-                            snackbar.severity === 'error' ? '#f44336' :
-                                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
-                        color: 'white'
-                    }}
-                >
-                    {snackbar.severity === 'success' && <CheckCircleIcon />}
-                    {snackbar.severity === 'error' && <ErrorIcon />}
-                    <Typography variant="body2">{snackbar.message}</Typography>
-                    <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
-                        <CloseIcon fontSize="small" />
-                    </IconButton>
-                </Paper>
-            </Snackbar>
         </Box>
     );
-}
+};
+
+export default CreateTransaction;
