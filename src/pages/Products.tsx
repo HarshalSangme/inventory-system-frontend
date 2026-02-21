@@ -153,6 +153,12 @@ export default function Products() {
         }
         setSaving(true);
         try {
+            // Validation: Selling price cannot be less than cost price
+            if (formData.price < formData.cost_price) {
+                setSnackbar({ open: true, message: 'Selling price cannot be less than cost price.', severity: 'error' });
+                setSaving(false);
+                return;
+            }
             // Check for SKU uniqueness right before creation
             let uniqueSKU = formData.sku;
             const allSKUs = new Set(products.map(p => p.sku.toLowerCase()));

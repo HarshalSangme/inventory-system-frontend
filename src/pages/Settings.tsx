@@ -1,4 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useUser } from '../context/UserContext';
 import {
   Box, Typography, Tabs, Tab, Paper, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Avatar, Stack, Chip, Divider, useTheme
@@ -18,10 +22,12 @@ const Settings: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'sales' });
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [editOpen, setEditOpen] = useState(false);
   const [editUser, setEditUser] = useState<any | null>(null);
+  const [showEditUserPassword, setShowEditUserPassword] = useState(false);
 
   const handleEditOpen = (user: any) => {
     if (role === 'viewonly') return;
@@ -177,6 +183,11 @@ const Settings: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography fontSize={13}>{user.email || '-'}</Typography>
+                          {user.email_verified === false ? (
+                            <Chip label="Email verification pending" color="warning" size="small" sx={{ ml: 1, fontSize: 12 }} />
+                          ) : (
+                            <Chip label="Email verified" color="success" size="small" sx={{ ml: 1, fontSize: 12 }} />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Chip
@@ -204,7 +215,28 @@ const Settings: React.FC = () => {
               <DialogTitle sx={{ fontWeight: 600, fontSize: 18, textAlign: 'center' }}>Edit User</DialogTitle>
               <DialogContent>
                 <TextField label="Username" name="username" value={editUser?.username || ''} onChange={handleEditInput} fullWidth sx={{ mb: 1.5 }} />
-                <TextField label="Password (leave blank to keep)" name="password" type="password" value={editUser?.password || ''} onChange={handleEditInput} fullWidth sx={{ mb: 1.5 }} />
+                <TextField
+                  label="Password (leave blank to keep)"
+                  name="password"
+                  type={showEditUserPassword ? 'text' : 'password'}
+                  value={editUser?.password || ''}
+                  onChange={handleEditInput}
+                  fullWidth
+                  sx={{ mb: 1.5 }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showEditUserPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowEditUserPassword((show) => !show)}
+                          edge="end"
+                        >
+                          {showEditUserPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
                 <TextField
                   label="Role"
                   name="role"
@@ -231,7 +263,28 @@ const Settings: React.FC = () => {
               <DialogTitle sx={{ fontWeight: 600, fontSize: 18, textAlign: 'center' }}>Add User/Employee</DialogTitle>
               <DialogContent>
                 <TextField label="Username" name="username" value={newUser.username} onChange={handleInput} fullWidth sx={{ mb: 1.5 }} />
-                <TextField label="Password" name="password" type="password" value={newUser.password} onChange={handleInput} fullWidth sx={{ mb: 1.5 }} />
+                <TextField
+                  label="Password"
+                  name="password"
+                  type={showNewUserPassword ? 'text' : 'password'}
+                  value={newUser.password}
+                  onChange={handleInput}
+                  fullWidth
+                  sx={{ mb: 1.5 }}
+                  InputProps={{
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showNewUserPassword ? 'Hide password' : 'Show password'}
+                          onClick={() => setShowNewUserPassword((show) => !show)}
+                          edge="end"
+                        >
+                          {showNewUserPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }}
+                />
                 <TextField label="Role" name="role" value={newUser.role} onChange={handleInput} fullWidth />
               </DialogContent>
               <DialogActions sx={{ justifyContent: 'center' }}>
