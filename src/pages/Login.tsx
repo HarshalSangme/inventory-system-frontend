@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import IconButton from '@mui/material/IconButton';
 import InputAdornment from '@mui/material/InputAdornment';
@@ -15,6 +16,7 @@ import Container from '@mui/material/Container';
 import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 
+const Login: React.FC = () => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -119,4 +121,6 @@ import CircularProgress from '@mui/material/CircularProgress';
             </Box>
         </Container>
     );
-}
+};
+
+export default Login;
