@@ -8,6 +8,7 @@ import {
   Box, Typography, Tabs, Tab, Paper, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Avatar, Stack, Chip, Divider, useTheme
 } from '@mui/material';
 import { getAllUsers, addUser, updateUser } from '../services/userService';
+import { useSnackbar } from '../context/SnackbarContext';
 import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -18,6 +19,7 @@ import BadgeIcon from '@mui/icons-material/Badge';
 
 const Settings: React.FC = () => {
   const { role } = useUser();
+  const { showSnackbar } = useSnackbar();
   const [tab, setTab] = useState(0);
   const [users, setUsers] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -43,7 +45,7 @@ const Settings: React.FC = () => {
   };
   const handleEditSave = async () => {
     if (role === 'viewonly') {
-      alert('View Only users cannot edit users.');
+      showSnackbar('View Only users cannot edit users.', 'error');
       return;
     }
     if (!editUser) return;
@@ -58,8 +60,9 @@ const Settings: React.FC = () => {
       const updatedUsers = await getAllUsers();
       setUsers(updatedUsers);
       handleEditClose();
-    } catch (error) {
-      alert('Failed to update user.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || 'Failed to update user.';
+      showSnackbar(msg, 'error');
     }
     setLoading(false);
   };
@@ -71,7 +74,7 @@ const Settings: React.FC = () => {
   };
   const handleAddUser = async () => {
     if (role === 'viewonly') {
-      alert('View Only users cannot add users.');
+      showSnackbar('View Only users cannot add users.', 'error');
       return;
     }
     setLoading(true);
@@ -81,8 +84,9 @@ const Settings: React.FC = () => {
       setUsers(updatedUsers);
       setOpen(false);
       setNewUser({ username: '', password: '', role: 'sales' });
-    } catch (error) {
-      alert('Failed to add user.');
+    } catch (error: any) {
+      const msg = error?.response?.data?.detail || 'Failed to add user.';
+      showSnackbar(msg, 'error');
     }
     setLoading(false);
   };
