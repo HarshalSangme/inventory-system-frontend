@@ -301,6 +301,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     <TableHead>
                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                             <TableCell sx={{ fontWeight: 700, minWidth: 200 }}>Product</TableCell>
+                            <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>SKU Code</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>Qty</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 110 }}>Price</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 100 }}>
@@ -383,6 +384,9 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                 );
                                             })()}
                                         </Box>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        {selectedProduct?.sku || '-'}
                                     </TableCell>
                                     <TableCell align="right">
                                         <TextField
