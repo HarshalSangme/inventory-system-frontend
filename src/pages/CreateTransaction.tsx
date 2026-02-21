@@ -59,6 +59,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
     })) : []);
     const [vatPercent, setVatPercent] = useState<number>(editData ? editData.vat_percent || 0 : 0);
     const [submitting, setSubmitting] = useState(false);
+        const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
 
     useEffect(() => {
         if (editData && products.length > 0) {
@@ -73,10 +74,12 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 };
             }));
             setVatPercent(editData.vat_percent || 0);
+            setPaymentMethod(editData.payment_method || 'Cash');
         } else if (!editData) {
             setSelectedPartnerId('');
             setItems([]);
             setVatPercent(0);
+            setPaymentMethod('Cash');
         }
     }, [editData, products]);
 
@@ -181,7 +184,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
             partner_id: Number(selectedPartnerId),
             type: type,
             items: items,
-            vat_percent: vatPercent
+            vat_percent: vatPercent,
+            payment_method: paymentMethod
         };
         try {
             if (editData && onEdit) {
@@ -223,6 +227,21 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                             <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
                         ))}
                     </Select>
+                        {/* Payment Method Dropdown */}
+                        <Box sx={{ mt: 2 }}>
+                            <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>💳 Payment Method</Typography>
+                            <Select
+                                fullWidth
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value)}
+                                size="small"
+                                disabled={role === 'viewonly'}
+                            >
+                                <MenuItem value="Cash">Cash</MenuItem>
+                                <MenuItem value="Bank">Bank</MenuItem>
+                                <MenuItem value="Credit">Credit</MenuItem>
+                            </Select>
+                        </Box>
                 </Grid>
                 <Grid item xs={6} md={3}>
                     <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>📊 VAT %</Typography>
