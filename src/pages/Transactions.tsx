@@ -231,6 +231,14 @@ export default function Transactions({ type }: TransactionsProps) {
                                     <Typography variant="subtitle2" color="text.secondary">Sales Person</Typography>
                                     <Typography variant="body1">{selectedTransaction.sales_person || '-'}</Typography>
                                 </Grid>
+                                <Grid item xs={6} sm={3}>
+                                    <Typography variant="subtitle2" color="text.secondary">Payment Method</Typography>
+                                    <Typography variant="body1">{selectedTransaction.payment_method || '-'}</Typography>
+                                </Grid>
+                                <Grid item xs={6} sm={3}>
+                                    <Typography variant="subtitle2" color="text.secondary">VAT %</Typography>
+                                    <Typography variant="body1">{selectedTransaction.vat_percent || 0}</Typography>
+                                </Grid>
                             </Grid>
 
                             <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>Items</Typography>
@@ -240,42 +248,79 @@ export default function Transactions({ type }: TransactionsProps) {
                                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                                             <TableCell>Product</TableCell>
                                             <TableCell align="right">Qty</TableCell>
+                                            <TableCell align="right">Cost Price</TableCell>
                                             <TableCell align="right">Price</TableCell>
-                                            <TableCell align="right">Total</TableCell>
+                                            <TableCell align="right">Discount</TableCell>
+                                            <TableCell align="right">Amount</TableCell>
+                                            <TableCell align="right">VAT %</TableCell>
+                                            <TableCell align="right">VAT</TableCell>
+                                            <TableCell align="right">Net Amt</TableCell>
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {selectedTransaction.items?.map((item, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight="medium">{item.product?.name || `Product #${item.product_id}`}</Typography>
-                                                    <Typography variant="caption" color="text.secondary">{item.product?.sku}</Typography>
-                                                </TableCell>
-                                                <TableCell align="right">{item.quantity}</TableCell>
-                                                <TableCell align="right">{item.price.toFixed(3)}</TableCell>
-                                                <TableCell align="right">{((item.quantity * item.price) - (item.discount || 0)).toFixed(3)}</TableCell>
-                                            </TableRow>
-                                        ))}
+                                        {selectedTransaction.items?.map((item, index) => {
+                                            const costPrice = typeof item.product?.cost_price === 'number' ? item.product.cost_price : undefined;
+                                            const itemGross = item.price * item.quantity;
+                                            const itemAmtAfterDisc = itemGross - (item.discount || 0);
+                                            const vatPercent = typeof item.vat_percent === 'number' ? item.vat_percent : 0;
+                                            const itemVat = itemAmtAfterDisc * (vatPercent / 100);
+                                            const itemNet = itemAmtAfterDisc + itemVat;
+                                            return (
+                                                <TableRow key={index}>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight="medium">{item.product?.name || `Product #${item.product_id}`}</Typography>
+                                                        <Typography variant="caption" color="text.secondary">{item.product?.sku}</Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">{item.quantity}</TableCell>
+                                                    <TableCell align="right">{typeof costPrice === 'number' ? costPrice.toFixed(3) : '-'}</TableCell>
+                                                    <TableCell align="right">{item.price.toFixed(3)}</TableCell>
+                                                    <TableCell align="right">{item.discount ? item.discount.toFixed(3) : '-'}</TableCell>
+                                                    <TableCell align="right">{itemAmtAfterDisc.toFixed(3)}</TableCell>
+                                                    <TableCell align="right">{vatPercent}</TableCell>
+                                                    <TableCell align="right">{vatPercent > 0 ? itemVat.toFixed(3) : '-'}</TableCell>
+                                                    <TableCell align="right">{itemNet.toFixed(3)}</TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
                                     </TableBody>
                                 </Table>
                             </TableContainer>
 
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-                                <Box sx={{ width: '250px' }}>
+                                <Box sx={{ width: '300px' }}>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                        <Typography variant="body2">Subtotal:</Typography>
+                                        <Typography variant="body2">Gross Amount:</Typography>
                                         <Typography variant="body2" fontWeight="bold">
-                                            {(selectedTransaction.total_amount / (1 + (selectedTransaction.vat_percent || 0) / 100)).toFixed(3)} BHD
+                                            {selectedTransaction.items?.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(3)} BHD
                                         </Typography>
                                     </Box>
+                                    {selectedTransaction.items?.some(item => item.discount > 0) && (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography variant="body2" color="error">Discount:</Typography>
+                                            <Typography variant="body2" color="error">
+                                                -{selectedTransaction.items?.reduce((sum, item) => sum + (item.discount || 0), 0).toFixed(3)} BHD
+                                            </Typography>
+                                        </Box>
+                                    )}
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                        <Typography variant="body2">VAT ({selectedTransaction.vat_percent}%):</Typography>
+                                        <Typography variant="body2">After Discount:</Typography>
                                         <Typography variant="body2" fontWeight="bold">
-                                            {(selectedTransaction.total_amount - (selectedTransaction.total_amount / (1 + (selectedTransaction.vat_percent || 0) / 100))).toFixed(3)} BHD
+                                            {(selectedTransaction.items?.reduce((sum, item) => sum + (item.price * item.quantity - (item.discount || 0)), 0)).toFixed(3)} BHD
                                         </Typography>
                                     </Box>
+                                    {selectedTransaction.items?.some(item => typeof item.vat_percent === 'number' && item.vat_percent > 0) && (
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                            <Typography variant="body2" sx={{ color: '#e65100' }}>VAT:</Typography>
+                                            <Typography variant="body2" sx={{ color: '#e65100' }}>
+                                                +{selectedTransaction.items?.reduce((sum, item) => {
+                                                    const vatPercent = typeof item.vat_percent === 'number' ? item.vat_percent : 0;
+                                                    return sum + ((item.price * item.quantity - (item.discount || 0)) * (vatPercent / 100));
+                                                }, 0).toFixed(3)} BHD
+                                            </Typography>
+                                        </Box>
+                                    )}
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1, borderTop: '1px solid #eee' }}>
-                                        <Typography variant="subtitle1" fontWeight="bold">Total:</Typography>
+                                        <Typography variant="subtitle1" fontWeight="bold">Net Total:</Typography>
                                         <Typography variant="subtitle1" fontWeight="bold" color="primary">
                                             {selectedTransaction.total_amount.toFixed(3)} BHD
                                         </Typography>

@@ -1,3 +1,4 @@
+// ...existing code...
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useEffect, useState } from 'react';
 import { useUser } from '../context/UserContext';
@@ -43,6 +44,12 @@ type CreateTransactionProps = {
 };
 
 const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, onSuccess, editData, onEdit }) => {
+        const updateVat = (index: number, value: number) => {
+            if (role === 'viewonly') return;
+            const newItems = [...items];
+            newItems[index].vat_percent = value;
+            setItems(newItems);
+        };
     const { role } = useUser();
     const { showSnackbar } = useSnackbar();
     const [partners, setPartners] = useState<Partner[]>([]);
@@ -55,9 +62,10 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         product_id: item.product_id,
         quantity: item.quantity,
         price: item.price,
-        discount: item.discount || 0
+        discount: item.discount || 0,
+        vat_percent: item.vat_percent ?? 0
     })) : []);
-    const [vatPercent, setVatPercent] = useState<number>(editData ? editData.vat_percent || 0 : 0);
+    // Remove global vatPercent
     const [submitting, setSubmitting] = useState(false);
         const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
 
@@ -73,12 +81,10 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     discount: item.discount || 0
                 };
             }));
-            setVatPercent(editData.vat_percent || 0);
             setPaymentMethod(editData.payment_method || 'Cash');
         } else if (!editData) {
             setSelectedPartnerId('');
             setItems([]);
-            setVatPercent(0);
             setPaymentMethod('Cash');
         }
     }, [editData, products]);
@@ -115,7 +121,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
             }
             defaultProduct = firstAvailable;
         }
-        setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price, discount: 0 }]);
+        setItems([...items, { product_id: defaultProduct.id, quantity: 1, price: defaultProduct.price, discount: 0, vat_percent: 0 }]);
+        // updateVat is now top-level
     };
 
     const updateItem = (index: number, field: keyof TransactionItem, value: number) => {
@@ -146,13 +153,13 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
 
     const getItemGross = (item: TransactionItem) => item.price * item.quantity;
     const getItemAmtAfterDisc = (item: TransactionItem) => getItemGross(item) - (item.discount || 0);
-    const getItemVat = (item: TransactionItem) => getItemAmtAfterDisc(item) * (vatPercent / 100);
+    const getItemVat = (item: TransactionItem) => getItemAmtAfterDisc(item) * ((item.vat_percent ?? 0) / 100);
     const getItemNet = (item: TransactionItem) => getItemAmtAfterDisc(item) + getItemVat(item);
 
     const totalGross = items.reduce((sum, item) => sum + getItemGross(item), 0);
     const totalDiscount = items.reduce((sum, item) => sum + (item.discount || 0), 0);
     const totalAmtAfterDisc = totalGross - totalDiscount;
-    const totalVat = totalAmtAfterDisc * (vatPercent / 100);
+    const totalVat = items.reduce((sum, item) => sum + getItemVat(item), 0);
     const grandTotal = totalAmtAfterDisc + totalVat;
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -184,7 +191,6 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
             partner_id: Number(selectedPartnerId),
             type: type,
             items: items,
-            vat_percent: vatPercent,
             payment_method: paymentMethod
         };
         try {
@@ -243,19 +249,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                             </Select>
                         </Box>
                 </Grid>
-                <Grid item xs={6} md={3}>
-                    <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>📊 VAT %</Typography>
-                    <TextField
-                        type="number"
-                        inputProps={{ min: 0, max: 100, step: '0.01' }}
-                        value={vatPercent}
-                        onChange={e => setVatPercent(Number(e.target.value))}
-                        fullWidth
-                        size="small"
-                        required
-                        disabled={role === 'viewonly'}
-                    />
-                </Grid>
+                {/* VAT input removed, now per-item */}
                 <Grid item xs={6} md={4}>
                     <Paper elevation={2} sx={{
                         p: 1.5,
@@ -316,7 +310,10 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                 <Tooltip title="Price × Qty − Discount"><span>Amount</span></Tooltip>
                             </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 80, color: '#e65100' }}>
-                                <Tooltip title={`VAT at ${vatPercent}%`}><span>VAT</span></Tooltip>
+                                <Tooltip title="VAT %"><span>VAT %</span></Tooltip>
+                            </TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, width: 80, color: '#e65100' }}>
+                                <Tooltip title="VAT Amount"><span>VAT</span></Tooltip>
                             </TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 110, color: '#2e7d32' }}>
                                 <Tooltip title="Amount + VAT"><span>Net Amt</span></Tooltip>
@@ -328,7 +325,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                         {items.map((item, index) => {
                             const selectedProduct = products.find(p => p.id === item.product_id);
                             const itemAmtAfterDisc = getItemAmtAfterDisc(item);
-                            const itemVat = getItemVat(item);
+                            // itemVat is used below inline
                             const itemNet = getItemNet(item);
 
                             return (
@@ -439,8 +436,20 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                         </Typography>
                                     </TableCell>
                                     <TableCell align="right">
+                                        <TextField
+                                            type="number"
+                                            inputProps={{ min: 0, max: 100, step: '0.01', style: { textAlign: 'right' } }}
+                                            value={item.vat_percent ?? 0}
+                                            onChange={e => updateVat(index, Number(e.target.value))}
+                                            size="small"
+                                            fullWidth
+                                            required
+                                            disabled={role === 'viewonly'}
+                                        />
+                                    </TableCell>
+                                    <TableCell align="right">
                                         <Typography variant="body2" sx={{ color: '#e65100' }}>
-                                            {vatPercent > 0 ? itemVat.toFixed(3) : '-'}
+                                            {(item.vat_percent ?? 0) > 0 ? getItemVat(item).toFixed(3) : '-'}
                                         </Typography>
                                     </TableCell>
                                     <TableCell align="right">
@@ -494,9 +503,9 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                             <Typography variant="body2" color="text.secondary">After Discount:</Typography>
                             <Typography variant="body2">{totalAmtAfterDisc.toFixed(3)}</Typography>
                         </Box>
-                        {vatPercent > 0 && (
+                        {totalVat > 0 && (
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                <Typography variant="body2" sx={{ color: '#e65100' }}>VAT ({vatPercent}%):</Typography>
+                                <Typography variant="body2" sx={{ color: '#e65100' }}>VAT:</Typography>
                                 <Typography variant="body2" sx={{ color: '#e65100' }}>+{totalVat.toFixed(3)}</Typography>
                             </Box>
                         )}

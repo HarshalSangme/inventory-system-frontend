@@ -14,9 +14,11 @@ export interface TransactionItem {
     quantity: number;
     price: number;
     discount: number;
+    vat_percent?: number;
     product?: {
         name: string;
         sku: string;
+        cost_price?: number;
     };
 }
 
