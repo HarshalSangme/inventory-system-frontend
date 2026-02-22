@@ -5,10 +5,22 @@
 /* Global scaling to achieve 80% zoom appearance at 100% */
 :root {
   font-size: 13px;
+  /* Jot Brand Colors */
+  --jot-charcoal: #4a4a4a;
+  --jot-charcoal-light: #5e5e5e;
+  --jot-orange: #E8571E;
+  --jot-orange-dark: #D96B00;
 }
 
 body {
   font-size: 13px;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+.premium-bg {
+  background: #ffffff;
 }
 
 /* Scale down MUI components */
