@@ -5,9 +5,9 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import Drawer from '@mui/material/Drawer';
 import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import logo from '../assets/jot.png';
 import Toolbar from '@mui/material/Toolbar';
-import Divider from '@mui/material/Divider';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PeopleIcon from '@mui/icons-material/People';
 import StorefrontIcon from '@mui/icons-material/Storefront';
@@ -32,8 +32,56 @@ const items = [
     { icon: <BarChartIcon />, label: 'Reports', path: '/reports' },
 ];
 
-export default function Sidebar() {
+const SidebarItems = () => {
     const location = useLocation();
+
+    return (
+        <List dense sx={{
+            px: 1.5,
+            '& .MuiListItemButton-root': {
+                borderRadius: '8px',
+                mb: 0.5,
+                transition: 'all 0.2s ease',
+                '&.Mui-selected': {
+                    bgcolor: 'var(--jot-orange)',
+                    color: 'white',
+                    '&:hover': {
+                        bgcolor: 'var(--jot-orange-dark)',
+                    },
+                    '& .MuiListItemIcon-root': {
+                        color: 'white',
+                    }
+                },
+                '&:hover:not(.Mui-selected)': {
+                    bgcolor: 'rgba(255, 255, 255, 0.08)',
+                }
+            }
+        }}>
+            {items.map((it) => (
+                <ListItem key={it.path} disablePadding>
+                    <ListItemButton
+                        component={RouterLink}
+                        to={it.path}
+                        selected={location.pathname === it.path}
+                    >
+                        <ListItemIcon sx={{ color: 'rgba(255, 255, 255, 0.7)', minWidth: 36 }}>
+                            {it.icon}
+                        </ListItemIcon>
+                        <ListItemText
+                            primary={it.label}
+                            primaryTypographyProps={{
+                                fontWeight: location.pathname === it.path ? 600 : 400,
+                                fontSize: '0.85rem'
+                            }}
+                        />
+                    </ListItemButton>
+                </ListItem>
+            ))}
+        </List>
+    );
+};
+
+export default function Sidebar() {
     const handleSettings = () => {
         window.location.href = '/settings';
     };
@@ -48,7 +96,14 @@ export default function Sidebar() {
             sx={{
                 width: drawerWidth,
                 flexShrink: 0,
-                '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
+                '& .MuiDrawer-paper': {
+                    width: drawerWidth,
+                    boxSizing: 'border-box',
+                    bgcolor: 'var(--jot-charcoal)',
+                    color: 'white',
+                    borderRight: 'none',
+                    boxShadow: '4px 0 10px rgba(0,0,0,0.1)'
+                },
             }}
         >
             <Toolbar sx={{
@@ -56,41 +111,54 @@ export default function Sidebar() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                py: 1.5,
-                px: 1.5,
-                minHeight: 80
+                py: 3,
+                px: 2,
+                minHeight: 100
             }}>
-                <img src={logo} alt="Logo" style={{ height: 36, marginBottom: 6 }} />
-                <Box component="span" sx={{ fontWeight: 400, fontSize: 14, textAlign: 'center', lineHeight: 1.2 }}>
-                    JOT AUTO PARTS W.L.L
+                <Box
+                    sx={{
+                        bgcolor: 'white',
+                        p: 1,
+                        borderRadius: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 1.5,
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                    }}
+                >
+                    <img src={logo} alt="Logo" style={{ height: 32 }} />
                 </Box>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', textAlign: 'center' }}>
+                    JOT AUTO PARTS W.L.L
+                </Typography>
             </Toolbar>
-            <Divider />
-            <List dense sx={{ '& .MuiListItemButton-root': { py: 0.5, minHeight: 36 }, '& .MuiListItemIcon-root': { minWidth: 36 }, '& .MuiListItemText-primary': { fontSize: 13 }, '& .MuiSvgIcon-root': { fontSize: 18 } }}>
-                {items.map((it) => (
-                    <ListItem key={it.path} disablePadding>
-                        <ListItemButton component={RouterLink} to={it.path} selected={location.pathname === it.path}>
-                            <ListItemIcon>{it.icon}</ListItemIcon>
-                            <ListItemText primary={it.label} />
-                        </ListItemButton>
-                    </ListItem>
-                ))}
-            </List>
+
+            <Box sx={{ mt: 2 }}>
+                <SidebarItems />
+            </Box>
 
             <Box sx={{ flex: 1 }} />
-            <Divider />
-            <Box sx={{ p: 0.5 }}>
-                <List dense sx={{ '& .MuiListItemButton-root': { py: 0.5, minHeight: 36 }, '& .MuiListItemIcon-root': { minWidth: 36 }, '& .MuiListItemText-primary': { fontSize: 13 }, '& .MuiSvgIcon-root': { fontSize: 18 } }}>
+
+            <Box sx={{ p: 1.5, mb: 1 }}>
+                <List dense sx={{
+                    '& .MuiListItemButton-root': {
+                        borderRadius: '8px',
+                        '&:hover': {
+                            bgcolor: 'rgba(255, 255, 255, 0.08)',
+                        }
+                    }
+                }}>
                     <ListItem disablePadding>
                         <ListItemButton onClick={handleSettings}>
-                            <ListItemIcon><SettingsIcon /></ListItemIcon>
-                            <ListItemText primary="Settings" />
+                            <ListItemIcon sx={{ color: 'rgba(255, 255, 255, 0.7)', minWidth: 36 }}><SettingsIcon /></ListItemIcon>
+                            <ListItemText primary="Settings" primaryTypographyProps={{ fontSize: '0.85rem' }} />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
                         <ListItemButton onClick={handleLogout}>
-                            <ListItemIcon><LogoutIcon color="error" /></ListItemIcon>
-                            <ListItemText primary="Logout" />
+                            <ListItemIcon sx={{ color: 'rgba(211, 47, 47, 0.8)', minWidth: 36 }}><LogoutIcon /></ListItemIcon>
+                            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.85rem' }} />
                         </ListItemButton>
                     </ListItem>
                 </List>

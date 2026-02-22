@@ -9,13 +9,12 @@ import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
-import logo from '../assets/jot.png';
 import { useEffect, useState } from 'react';
 import { getCurrentUser } from '../services/userService';
 import { UserContext } from '../context/UserContext';
 import { SnackbarProvider } from '../context/SnackbarContext';
-
-
+import Chip from '@mui/material/Chip';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 
 export default function Layout() {
     const [user, setUser] = useState<any>(null);
@@ -34,37 +33,69 @@ export default function Layout() {
     return (
         <SnackbarProvider>
             <UserContext.Provider value={{ user, role }}>
-                <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+                <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#fbfbfb' }}>
                     <Sidebar />
-                    <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                        <AppBar position="sticky" color="default" elevation={1} sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-                            <Toolbar sx={{ px: 2, minHeight: 48, display: 'flex', alignItems: 'center' }}>
-                                <img src={logo} alt="Logo" style={{ height: 28, marginRight: 12 }} />
-                                <Typography variant="body1" component="div" sx={{ flexGrow: 1, fontWeight: 400, fontSize: 14 }}>
+                    <Box component="main" sx={{ flex: 1, display: 'flex', flexDirection: 'column', width: 'calc(100% - 200px)' }}>
+                        <AppBar
+                            position="sticky"
+                            color="inherit"
+                            elevation={0}
+                            sx={{
+                                bgcolor: 'white',
+                                borderBottom: '1px solid #f0f0f0',
+                                zIndex: (theme) => theme.zIndex.drawer + 1
+                            }}
+                        >
+                            <Toolbar sx={{ px: 3, minHeight: 64 }}>
+                                <Typography
+                                    variant="h6"
+                                    component="div"
+                                    sx={{
+                                        flexGrow: 1,
+                                        fontWeight: 700,
+                                        fontSize: '1rem',
+                                        color: 'var(--jot-charcoal)',
+                                        letterSpacing: '-0.5px'
+                                    }}
+                                >
                                     Inventory Management System
                                 </Typography>
+
                                 {user && (
-                                    <Typography variant="body2" sx={{ ml: 2, fontWeight: 500, fontSize: 12 }}>
-                                        Logged in as: {user.username}
-                                    </Typography>
+                                    <Chip
+                                        icon={<PersonOutlineIcon sx={{ fontSize: '1rem !important' }} />}
+                                        label={user.username}
+                                        variant="outlined"
+                                        size="small"
+                                        sx={{
+                                            borderRadius: '8px',
+                                            fontWeight: 600,
+                                            px: 0.5,
+                                            color: 'var(--jot-charcoal)',
+                                            borderColor: '#eee',
+                                            bgcolor: '#f9f9f9'
+                                        }}
+                                    />
                                 )}
                             </Toolbar>
                         </AppBar>
 
-                        <Box sx={{ flex: 1, overflow: 'auto' }}>
+                        <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
                             <Outlet />
                         </Box>
-                        <Box component="footer" sx={{ bgcolor: '#222', color: '#fff', py: 1.5, textAlign: 'center', mt: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <img src={logo} alt="Logo" style={{ height: 24, marginBottom: 6 }} />
-                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'center' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <PhoneIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                                    <span style={{ marginLeft: 2 }}>36341106</span>
+
+                        <Box component="footer" sx={{ bgcolor: 'white', color: 'text.secondary', py: 2, borderTop: '1px solid #f0f0f0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.65rem', mb: 1, color: '#aaa', letterSpacing: '1px' }}>
+                                JOT AUTO PARTS W.L.L
+                            </Typography>
+                            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'center', fontSize: '0.75rem' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <PhoneIcon sx={{ fontSize: 13, color: 'var(--jot-orange)' }} />
+                                    <span>36341106</span>
                                 </span>
-                                <span style={{ margin: '0 6px' }}>|</span>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <EmailIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                                    <span style={{ marginLeft: 2 }}>jotautopartswll@gmail.com</span>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <EmailIcon sx={{ fontSize: 13, color: 'var(--jot-orange)' }} />
+                                    <span>jotautopartswll@gmail.com</span>
                                 </span>
                             </Typography>
                         </Box>
