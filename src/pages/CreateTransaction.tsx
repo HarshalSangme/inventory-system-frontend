@@ -287,7 +287,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 <Table size="small">
                     <TableHead>
                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                            <TableCell sx={{ fontWeight: 700, minWidth: 200 }}>Product</TableCell>
+                            <TableCell sx={{ fontWeight: 700, minWidth: 240, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Product</TableCell>
                             <TableCell align="center" sx={{ fontWeight: 700, minWidth: 120 }}>SKU Code</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>Qty</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 110 }}>Price</TableCell>
