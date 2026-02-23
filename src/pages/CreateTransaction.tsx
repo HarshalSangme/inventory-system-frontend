@@ -288,7 +288,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     <TableHead>
                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
                             <TableCell sx={{ fontWeight: 700, width: 60 }}>SR. NO.</TableCell>
-                            <TableCell sx={{ fontWeight: 700, minWidth: 240, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Product</TableCell>
+                            <TableCell sx={{ fontWeight: 700, minWidth: 320, maxWidth: 480, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Product</TableCell>
                             <TableCell align="center" sx={{ fontWeight: 700, minWidth: 120 }}>SKU Code</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>Qty</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 110 }}>Price</TableCell>
@@ -313,10 +313,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     <TableBody>
                         {items.map((item, index) => {
                             const selectedProduct = products.find(p => p.id === item.product_id);
-                            // SKU field value: use item.sku if present, else selectedProduct?.sku
                             const skuFieldValue = typeof item.sku === 'string' ? item.sku : (selectedProduct?.sku || '');
                             const itemAmtAfterDisc = getItemAmtAfterDisc(item);
-                            // itemVat is used below inline
                             const itemNet = getItemNet(item);
 
                             return (
@@ -326,89 +324,84 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                 }}>
                                     <TableCell>{index + 1}</TableCell>
                                     <TableCell>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={filteredProducts.filter(p => {
-                                                        if (type !== 'sale') return true;
-                                                        const metadataAllocated = items.reduce((sum, i, idx) => {
-                                                            return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
-                                                        }, 0);
-                                                        const remaining = p.stock_quantity - metadataAllocated;
-                                                        return remaining > 0 || p.id === item.product_id;
-                                                    })}
-                                                    getOptionLabel={option => option.name}
-                                                    value={products.find(p => p.id === item.product_id) || null}
-                                                    onChange={(_, newValue) => {
-                                                        if (role === 'viewonly' || !newValue) return;
-                                                        const prod = newValue;
-                                                        const newItems = [...items];
-                                                        newItems[index] = {
-                                                            ...newItems[index],
-                                                            product_id: prod.id,
-                                                            price: type === 'sale' ? (prod.price || 0) : prod.price || 0,
-                                                            quantity: 1,
-                                                            discount: 0
-                                                        };
-                                                        setItems(newItems);
-                                                    }}
-                                                    renderInput={params => (
-                                                        <TextField {...params} required label="Select Product" placeholder="Type to search..." sx={{ flex: 2 }} />
-                                                    )}
-                                                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                                                    disabled={role === 'viewonly'}
-                                                />
-                                                <TextField
-                                                    label="SKU Code"
-                                                    placeholder="Enter SKU"
-                                                    size="small"
-                                                    sx={{ flex: 1, minWidth: 100 }}
-                                                    value={skuFieldValue}
-                                                    onChange={e => {
-                                                        if (role === 'viewonly') return;
-                                                        const sku = e.target.value;
-                                                        const newItems = [...items];
-                                                        newItems[index] = {
-                                                            ...newItems[index],
-                                                            sku
-                                                        };
-                                                        // If SKU matches a product, auto-select it
-                                                        const found = products.find(p => p.sku && p.sku.toLowerCase() === sku.trim().toLowerCase());
-                                                        if (found) {
-                                                            newItems[index] = {
-                                                                ...newItems[index],
-                                                                product_id: found.id,
-                                                                price: type === 'sale' ? (found.price || 0) : found.price || 0,
-                                                                quantity: 1,
-                                                                discount: 0
-                                                            };
-                                                        }
-                                                        setItems(newItems);
-                                                    }}
-                                                    disabled={role === 'viewonly'}
-                                                />
-                                            </Box>
-                                            {selectedProduct && type === 'sale' && (() => {
-                                                const otherRowsUsage = items.reduce((sum, i, idx) => {
-                                                    return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
+                                        <Autocomplete
+                                            fullWidth
+                                            size="small"
+                                            options={filteredProducts.filter(p => {
+                                                if (type !== 'sale') return true;
+                                                const metadataAllocated = items.reduce((sum, i, idx) => {
+                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
                                                 }, 0);
-                                                const remaining = selectedProduct.stock_quantity - otherRowsUsage;
-                                                return (
-                                                    <Chip
-                                                        size="small"
-                                                        label={`${remaining} left`}
-                                                        color={remaining > 5 ? 'success' : remaining > 0 ? 'warning' : 'error'}
-                                                        variant="outlined"
-                                                        sx={{ minWidth: 65, fontSize: '0.7rem' }}
-                                                    />
-                                                );
-                                            })()}
-                                        </Box>
+                                                const remaining = p.stock_quantity - metadataAllocated;
+                                                return remaining > 0 || p.id === item.product_id;
+                                            })}
+                                            getOptionLabel={option => option.name}
+                                            value={products.find(p => p.id === item.product_id) || null}
+                                            onChange={(_, newValue) => {
+                                                if (role === 'viewonly' || !newValue) return;
+                                                const prod = newValue;
+                                                const newItems = [...items];
+                                                newItems[index] = {
+                                                    ...newItems[index],
+                                                    product_id: prod.id,
+                                                    price: type === 'sale' ? (prod.price || 0) : prod.price || 0,
+                                                    quantity: 1,
+                                                    discount: 0
+                                                };
+                                                setItems(newItems);
+                                            }}
+                                            renderInput={params => (
+                                                <TextField {...params} required label="Select Product" placeholder="Type to search..." sx={{ flex: 2 }} />
+                                            )}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            disabled={role === 'viewonly'}
+                                        />
+                                        {selectedProduct && type === 'sale' && (() => {
+                                            const otherRowsUsage = items.reduce((sum, i, idx) => {
+                                                return (idx !== index && i.product_id === selectedProduct.id) ? sum + i.quantity : sum;
+                                            }, 0);
+                                            const remaining = selectedProduct.stock_quantity - otherRowsUsage;
+                                            return (
+                                                <Chip
+                                                    size="small"
+                                                    label={`${remaining} left`}
+                                                    color={remaining > 5 ? 'success' : remaining > 0 ? 'warning' : 'error'}
+                                                    variant="outlined"
+                                                    sx={{ minWidth: 65, fontSize: '0.7rem', mt: 1 }}
+                                                />
+                                            );
+                                        })()}
                                     </TableCell>
                                     <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                                        {selectedProduct?.sku || '-'}
+                                        <TextField
+                                            label="SKU Code"
+                                            placeholder="Enter SKU"
+                                            size="small"
+                                            sx={{ minWidth: 100 }}
+                                            value={skuFieldValue}
+                                            onChange={e => {
+                                                if (role === 'viewonly') return;
+                                                const sku = e.target.value;
+                                                const newItems = [...items];
+                                                newItems[index] = {
+                                                    ...newItems[index],
+                                                    sku
+                                                };
+                                                // If SKU matches a product, auto-select it
+                                                const found = products.find(p => p.sku && p.sku.toLowerCase() === sku.trim().toLowerCase());
+                                                if (found) {
+                                                    newItems[index] = {
+                                                        ...newItems[index],
+                                                        product_id: found.id,
+                                                        price: type === 'sale' ? (found.price || 0) : found.price || 0,
+                                                        quantity: 1,
+                                                        discount: 0
+                                                    };
+                                                }
+                                                setItems(newItems);
+                                            }}
+                                            disabled={role === 'viewonly'}
+                                        />
                                     </TableCell>
                                     <TableCell align="right">
                                         <TextField

@@ -230,7 +230,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                                 <TableCell>{idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                                 {type === 'sale' && <TableCell>{sku}</TableCell>}
-                                                {type === 'sale' && <TableCell sx={{ minWidth: 180, maxWidth: 260, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</TableCell>}
+                                                {type === 'sale' && <TableCell sx={{ minWidth: 260, maxWidth: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</TableCell>}
                                                 <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
                                                 {type === 'sale' && <TableCell>{transaction.payment_method || '-'}</TableCell>}
                                                 <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
