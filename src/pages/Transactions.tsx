@@ -227,20 +227,29 @@ export default function Transactions({ type }: TransactionsProps) {
                                             <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                                 <TableCell>{idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                                <TableCell>
+                                                <TableCell sx={{ minWidth: 120, whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 13, color: '#444', background: idx % 2 === 0 ? '#fcfcfc' : '#f5f5f5', borderRight: '1px solid #eee' }}>
                                                     {transaction.items && transaction.items.length > 0 ? (
-                                                        transaction.items.map((item, idx2) => (
-                                                            <div key={idx2}>{item.product?.sku || '-'}</div>
-                                                        ))
+                                                        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+                                                            {transaction.items.map((item, idx2) => (
+                                                                <li key={idx2} style={{ padding: '2px 0', borderBottom: idx2 < transaction.items.length - 1 ? '1px dashed #e0e0e0' : 'none' }}>
+                                                                    <span style={{ fontWeight: 500 }}>{item.product?.sku || '-'}</span>
+                                                                </li>
+                                                            ))}
+                                                        </Box>
                                                     ) : '-'}
                                                 </TableCell>
-                                                <TableCell>{partnerName}</TableCell>
-                                                <TableCell>{transaction.payment_method || '-'}</TableCell>
-                                                <TableCell>
+                                                <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
+                                                <TableCell sx={{ minWidth: 110 }}>{transaction.payment_method || '-'}</TableCell>
+                                                <TableCell sx={{ minWidth: 220, background: idx % 2 === 0 ? '#fcfcfc' : '#f5f5f5', fontSize: 13, color: '#222' }}>
                                                     {transaction.items && transaction.items.length > 0 ? (
-                                                        transaction.items.map((item, idx2) => (
-                                                            <div key={idx2}>{`${item.product?.name || '-'} (${item.product?.sku || '-'})`}</div>
-                                                        ))
+                                                        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
+                                                            {transaction.items.map((item, idx2) => (
+                                                                <li key={idx2} style={{ padding: '2px 0', borderBottom: idx2 < transaction.items.length - 1 ? '1px dashed #e0e0e0' : 'none' }}>
+                                                                    <span style={{ fontWeight: 500 }}>{item.product?.name || '-'} </span>
+                                                                    <span style={{ color: '#888', fontFamily: 'monospace' }}>({item.product?.sku || '-'})</span>
+                                                                </li>
+                                                            ))}
+                                                        </Box>
                                                     ) : '-'}
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
