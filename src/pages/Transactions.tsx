@@ -212,10 +212,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                     <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Entry No.</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Code</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>{type === 'purchase' ? 'Vendor Name' : 'Customer Name'}</TableCell>
-                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Mode of Payment</TableCell>
-                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Items (Name + SKU)</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
@@ -227,31 +224,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                             <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                                 <TableCell>{idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                                <TableCell sx={{ minWidth: 120, whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 13, color: '#444', background: idx % 2 === 0 ? '#fcfcfc' : '#f5f5f5', borderRight: '1px solid #eee' }}>
-                                                    {transaction.items && transaction.items.length > 0 ? (
-                                                        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-                                                            {transaction.items.map((item, idx2) => (
-                                                                <li key={idx2} style={{ padding: '2px 0', borderBottom: idx2 < transaction.items.length - 1 ? '1px dashed #e0e0e0' : 'none' }}>
-                                                                    <span style={{ fontWeight: 500 }}>{item.product?.sku || '-'}</span>
-                                                                </li>
-                                                            ))}
-                                                        </Box>
-                                                    ) : '-'}
-                                                </TableCell>
                                                 <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
-                                                <TableCell sx={{ minWidth: 110 }}>{transaction.payment_method || '-'}</TableCell>
-                                                <TableCell sx={{ minWidth: 220, background: idx % 2 === 0 ? '#fcfcfc' : '#f5f5f5', fontSize: 13, color: '#222' }}>
-                                                    {transaction.items && transaction.items.length > 0 ? (
-                                                        <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-                                                            {transaction.items.map((item, idx2) => (
-                                                                <li key={idx2} style={{ padding: '2px 0', borderBottom: idx2 < transaction.items.length - 1 ? '1px dashed #e0e0e0' : 'none' }}>
-                                                                    <span style={{ fontWeight: 500 }}>{item.product?.name || '-'} </span>
-                                                                    <span style={{ color: '#888', fontFamily: 'monospace' }}>({item.product?.sku || '-'})</span>
-                                                                </li>
-                                                            ))}
-                                                        </Box>
-                                                    ) : '-'}
-                                                </TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
                                                 <TableCell align="center">
                                                     <IconButton size="small" color="primary" onClick={() => handleView(transaction)}><VisibilityIcon fontSize="small" /></IconButton>
