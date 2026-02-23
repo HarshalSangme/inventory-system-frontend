@@ -36,27 +36,28 @@ const SidebarItems = () => {
     const location = useLocation();
 
     return (
-        <List dense sx={{
-            px: 1.5,
-            '& .MuiListItemButton-root': {
-                borderRadius: '8px',
-                mb: 0.5,
-                transition: 'all 0.2s ease',
-                '&.Mui-selected': {
-                    bgcolor: 'var(--jot-orange)',
-                    color: 'white',
-                    '&:hover': {
-                        bgcolor: 'var(--jot-orange-dark)',
-                    },
-                    '& .MuiListItemIcon-root': {
+            <List dense sx={{
+                px: 1.5,
+                background: 'white',
+                '& .MuiListItemButton-root': {
+                    borderRadius: '8px',
+                    mb: 0.5,
+                    transition: 'all 0.2s ease',
+                    '&.Mui-selected': {
+                        bgcolor: 'var(--jot-orange)',
                         color: 'white',
+                        '&:hover': {
+                            bgcolor: 'var(--jot-orange-dark)',
+                        },
+                        '& .MuiListItemIcon-root': {
+                            color: 'white',
+                        }
+                    },
+                    '&:hover:not(.Mui-selected)': {
+                        bgcolor: '#f5f5f5',
                     }
-                },
-                '&:hover:not(.Mui-selected)': {
-                    bgcolor: 'rgba(255, 255, 255, 0.08)',
                 }
-            }
-        }}>
+            }}>
             {items.map((it) => (
                 <ListItem key={it.path} disablePadding>
                     <ListItemButton
@@ -99,8 +100,8 @@ export default function Sidebar() {
                 '& .MuiDrawer-paper': {
                     width: drawerWidth,
                     boxSizing: 'border-box',
-                    bgcolor: 'var(--jot-charcoal)',
-                    color: 'white',
+                    bgcolor: 'white',
+                    color: '#222',
                     borderRight: 'none',
                     boxShadow: '4px 0 10px rgba(0,0,0,0.1)'
                 },
@@ -129,7 +130,7 @@ export default function Sidebar() {
                 >
                     <img src={logo} alt="Logo" style={{ height: 32 }} />
                 </Box>
-                <Typography sx={{ fontWeight: 700, fontSize: '0.7rem', color: 'rgba(255,255,255,0.6)', letterSpacing: '1px', textAlign: 'center' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#888', letterSpacing: '1px', textAlign: 'center' }}>
                     JOT AUTO PARTS W.L.L
                 </Typography>
             </Toolbar>
@@ -140,25 +141,26 @@ export default function Sidebar() {
 
             <Box sx={{ flex: 1 }} />
 
-            <Box sx={{ p: 1.5, mb: 1 }}>
+            <Box sx={{ p: 1.5, mb: 1, background: 'white' }}>
                 <List dense sx={{
+                    background: 'white',
                     '& .MuiListItemButton-root': {
                         borderRadius: '8px',
                         '&:hover': {
-                            bgcolor: 'rgba(255, 255, 255, 0.08)',
+                            bgcolor: '#f5f5f5',
                         }
                     }
                 }}>
                     <ListItem disablePadding>
                         <ListItemButton onClick={handleSettings}>
-                            <ListItemIcon sx={{ color: 'rgba(255, 255, 255, 0.7)', minWidth: 36 }}><SettingsIcon /></ListItemIcon>
-                            <ListItemText primary="Settings" primaryTypographyProps={{ fontSize: '0.85rem' }} />
+                            <ListItemIcon sx={{ color: '#888', minWidth: 36 }}><SettingsIcon /></ListItemIcon>
+                            <ListItemText primary="Settings" primaryTypographyProps={{ fontSize: '0.85rem', color: '#222' }} />
                         </ListItemButton>
                     </ListItem>
                     <ListItem disablePadding>
                         <ListItemButton onClick={handleLogout}>
                             <ListItemIcon sx={{ color: 'rgba(211, 47, 47, 0.8)', minWidth: 36 }}><LogoutIcon /></ListItemIcon>
-                            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.85rem' }} />
+                            <ListItemText primary="Logout" primaryTypographyProps={{ fontSize: '0.85rem', color: '#222' }} />
                         </ListItemButton>
                     </ListItem>
                 </List>

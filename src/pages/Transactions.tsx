@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TextField as MuiTextField } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useUser } from '../context/UserContext';
@@ -27,7 +28,9 @@ import {
     Grid,
     CircularProgress
 } from '@mui/material';
+
 import { getTransactions, type Transaction, getInvoicePdf } from '../services/transactionService';
+import { getPartners, type Partner } from '../services/partnerService';
 
 import CreateTransaction from './CreateTransaction';
 
@@ -38,6 +41,7 @@ interface TransactionsProps {
 export default function Transactions({ type }: TransactionsProps) {
     const { role } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [partners, setPartners] = useState<Partner[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
@@ -45,6 +49,8 @@ export default function Transactions({ type }: TransactionsProps) {
     const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [dateFrom, setDateFrom] = useState<string>('');
+    const [dateTo, setDateTo] = useState<string>('');
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
@@ -69,36 +75,55 @@ export default function Transactions({ type }: TransactionsProps) {
     };
 
     useEffect(() => {
-        const loadTransactions = async () => {
+        const loadTransactionsAndPartners = async () => {
             setLoading(true);
             try {
-                const data = await getTransactions();
-                // Client side filter for now
-                setTransactions(data.filter(t => t.type === type));
+                const [txData, partnerData] = await Promise.all([
+                    getTransactions(),
+                    getPartners()
+                ]);
+                setTransactions(txData.filter(t => t.type === type));
+                setPartners(partnerData);
             } catch (error) {
-                console.error('Failed to load transactions', error);
+                console.error('Failed to load transactions or partners', error);
             } finally {
                 setLoading(false);
             }
         };
-        loadTransactions();
-    }, [type]); // Reload when type changes
+        loadTransactionsAndPartners();
+    }, [type]);
 
     const refreshTransactions = async () => {
         try {
-            const data = await getTransactions();
-            setTransactions(data.filter(t => t.type === type));
+            const [txData, partnerData] = await Promise.all([
+                getTransactions(),
+                getPartners()
+            ]);
+            setTransactions(txData.filter(t => t.type === type));
+            setPartners(partnerData);
         } catch (error) {
-            console.error('Failed to load transactions', error);
+            console.error('Failed to load transactions or partners', error);
         }
     };
 
     const title = type === 'purchase' ? 'Purchases' : 'Sales';
 
-    const filteredTransactions = transactions.filter(t =>
+    let filteredTransactions = transactions.filter(t =>
         t.id.toString().includes(searchTerm) ||
         new Date(t.date).toLocaleDateString().includes(searchTerm)
     );
+    // Date range filter
+    if (dateFrom) {
+        filteredTransactions = filteredTransactions.filter(t => new Date(t.date) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+        filteredTransactions = filteredTransactions.filter(t => new Date(t.date) <= new Date(dateTo));
+    }
+    // Sort by date descending
+    filteredTransactions = filteredTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Total amount for filtered
+    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
 
     // Stub API calls for update/delete (replace with real API calls)
     const updateTransaction = async (id: number, data: any) => {
@@ -129,7 +154,7 @@ export default function Transactions({ type }: TransactionsProps) {
 
             {/* Search */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={8}>
+                <Grid item xs={12} md={4}>
                     <TextField
                         fullWidth
                         placeholder={`Search ${title.toLowerCase()}...`}
@@ -143,6 +168,33 @@ export default function Transactions({ type }: TransactionsProps) {
                             )
                         }}
                     />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                    <MuiTextField
+                        label="From"
+                        type="date"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={dateFrom}
+                        onChange={e => setDateFrom(e.target.value)}
+                    />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                    <MuiTextField
+                        label="To"
+                        type="date"
+                        size="small"
+                        fullWidth
+                        InputLabelProps={{ shrink: true }}
+                        value={dateTo}
+                        onChange={e => setDateTo(e.target.value)}
+                    />
+                </Grid>
+                <Grid item xs={12} md={4} display="flex" alignItems="center" justifyContent="flex-end">
+                    <Typography variant="subtitle1" fontWeight="bold" color="primary">
+                        Total: {totalAmount.toFixed(2)}
+                    </Typography>
                 </Grid>
             </Grid>
 
@@ -158,35 +210,56 @@ export default function Transactions({ type }: TransactionsProps) {
                             <Table size="small">
                                 <TableHead>
                                     <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Trans. ID</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Entry No.</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
-                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Partner</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Code</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>{type === 'purchase' ? 'Vendor Name' : 'Customer Name'}</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Mode of Payment</TableCell>
+                                        <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Items (Name + SKU)</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {filteredTransactions.map(transaction => (
-                                        <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                                            <TableCell sx={{ fontFamily: 'monospace', fontWeight: 500 }}>#{transaction.id}</TableCell>
-                                            <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                            <TableCell>{transaction.partner_id}</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
-                                            <TableCell align="center">
-                                                <IconButton size="small" color="primary" onClick={() => handleView(transaction)}><VisibilityIcon fontSize="small" /></IconButton>
-                                                {role !== 'viewonly' && (
-                                                    <>
-                                                        <IconButton size="small" color="secondary" onClick={() => { setIsEditMode(true); setEditTransaction(transaction); setIsModalOpen(true); }}>
-                                                            <EditIcon fontSize="small" />
-                                                        </IconButton>
-                                                        <IconButton size="small" color="error" onClick={() => { setDeleteTarget(transaction); setDeleteDialogOpen(true); }}>
-                                                            <DeleteIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {filteredTransactions.map((transaction, idx) => {
+                                        const partnerName = partners.find(p => p.id === transaction.partner_id)?.name || transaction.partner_id;
+                                        return (
+                                            <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
+                                                <TableCell>{idx + 1}</TableCell>
+                                                <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                                                <TableCell>
+                                                    {transaction.items && transaction.items.length > 0 ? (
+                                                        transaction.items.map((item, idx2) => (
+                                                            <div key={idx2}>{item.product?.sku || '-'}</div>
+                                                        ))
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell>{partnerName}</TableCell>
+                                                <TableCell>{transaction.payment_method || '-'}</TableCell>
+                                                <TableCell>
+                                                    {transaction.items && transaction.items.length > 0 ? (
+                                                        transaction.items.map((item, idx2) => (
+                                                            <div key={idx2}>{`${item.product?.name || '-'} (${item.product?.sku || '-'})`}</div>
+                                                        ))
+                                                    ) : '-'}
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
+                                                <TableCell align="center">
+                                                    <IconButton size="small" color="primary" onClick={() => handleView(transaction)}><VisibilityIcon fontSize="small" /></IconButton>
+                                                    {role !== 'viewonly' && (
+                                                        <>
+                                                            <IconButton size="small" color="secondary" onClick={() => { setIsEditMode(true); setEditTransaction(transaction); setIsModalOpen(true); }}>
+                                                                <EditIcon fontSize="small" />
+                                                            </IconButton>
+                                                            <IconButton size="small" color="error" onClick={() => { setDeleteTarget(transaction); setDeleteDialogOpen(true); }}>
+                                                                <DeleteIcon fontSize="small" />
+                                                            </IconButton>
+                                                        </>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                     {filteredTransactions.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={5} align="center" sx={{ py: 4 }}>

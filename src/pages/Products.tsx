@@ -48,6 +48,7 @@ import {
     MenuItem
 } from '@mui/material';
 import { getProducts, type Product, type ProductForm, createProduct, updateProduct, deleteProduct, importProducts, bulkDeleteProducts } from '../services/productService';
+import DetailsIcon from './_DetailsIcon';
 import { getCategories, createCategory, deleteCategory, type Category } from '../services/categoryService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -96,6 +97,7 @@ export default function Products() {
     const [categoryError, setCategoryError] = useState('');
 
     // Form State
+
     const [formData, setFormData] = useState<ProductForm>({
         name: '',
         sku: '',
@@ -106,6 +108,25 @@ export default function Products() {
         description: '',
         category_id: null
     });
+
+    // Ensure modal always shows latest product data after refresh
+    useEffect(() => {
+        if (isModalOpen && editingId !== null) {
+            const latestProduct = products.find(p => p.id === editingId);
+            if (latestProduct) {
+                setFormData({
+                    name: latestProduct.name,
+                    sku: latestProduct.sku,
+                    price: latestProduct.price,
+                    cost_price: latestProduct.cost_price,
+                    stock_quantity: latestProduct.stock_quantity,
+                    min_stock_level: latestProduct.min_stock_level,
+                    description: latestProduct.description || '',
+                    category_id: latestProduct.category_id || null
+                });
+            }
+        }
+    }, [products, editingId, isModalOpen]);
 
 
     useEffect(() => {
@@ -532,9 +553,11 @@ export default function Products() {
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Product Name</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Category</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Price</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Cost Price</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Retail Price</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Stock</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Status</TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Details</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
                                 </TableHead>
@@ -550,7 +573,8 @@ export default function Products() {
                                             <TableCell sx={{ fontWeight: 500 }}>{product.name}</TableCell>
                                             <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{product.sku}</Typography></TableCell>
                                             <TableCell>{product.category?.name || <span style={{ color: '#aaa' }}>Uncategorized</span>}</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 400, color: '#2e7d32' }}>{product.price}</TableCell>
+                                            <TableCell align="right" sx={{ color: '#1976d2', fontWeight: 400 }}>{product.cost_price}</TableCell>
+                                            <TableCell align="right" sx={{ color: '#2e7d32', fontWeight: 400 }}>{product.price}</TableCell>
                                             <TableCell align="right">{product.stock_quantity}</TableCell>
                                             <TableCell>
                                                 <Chip
@@ -559,6 +583,17 @@ export default function Products() {
                                                     size="small"
                                                     variant="outlined"
                                                 />
+                                            </TableCell>
+                                            <TableCell align="center">
+                                                <Tooltip title="View Details">
+                                                    <span>
+                                                        <IconButton size="small" color="info" onClick={() => handleEdit(product)} disabled={role === 'viewonly'}>
+                                                            {/* Details icon, can open the same modal as edit for now */}
+                                                            {/* Use the new DetailsIcon component */}
+                                                            <DetailsIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </span>
+                                                </Tooltip>
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Tooltip title="Edit">
