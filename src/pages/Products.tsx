@@ -544,6 +544,8 @@ export default function Products() {
                                 <TableHead>
                                     <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
                                         <TableCell padding="checkbox">
+                                            {/* SR. NO. column header */}
+                                        </TableCell>
                                             <Checkbox
                                                 checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
                                                 indeterminate={selectedIds.length > 0 && selectedIds.length < filteredProducts.length}
@@ -565,6 +567,8 @@ export default function Products() {
                                     {filteredProducts.map(product => (
                                         <TableRow key={product.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                             <TableCell padding="checkbox">
+                                                {/* SR. NO. cell */}
+                                                {filteredProducts.findIndex(p => p.id === product.id) + 1}
                                                 <Checkbox
                                                     checked={selectedIds.includes(product.id)}
                                                     onChange={(e) => handleSelectOne(product.id, e.target.checked)}
