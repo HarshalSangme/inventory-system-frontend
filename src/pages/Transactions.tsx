@@ -208,6 +208,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Entry No.</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
                                         {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU Code</TableCell>}
+                                        {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Item Name</TableCell>}
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>{type === 'purchase' ? 'Vendor Name' : 'Customer Name'}</TableCell>
                                         {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Payment Mode</TableCell>}
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
@@ -219,14 +220,17 @@ export default function Transactions({ type }: TransactionsProps) {
                                         const partnerName = partners.find(p => p.id === transaction.partner_id)?.name || transaction.partner_id;
                                         // For sales, show first item's SKU and payment mode
                                         let sku = '-';
+                                        let itemName = '-';
                                         if (type === 'sale' && transaction.items && transaction.items.length > 0) {
                                             sku = transaction.items[0]?.product?.sku || '-';
+                                            itemName = transaction.items[0]?.product?.name || '-';
                                         }
                                         return (
                                             <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                                 <TableCell>{idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                                 {type === 'sale' && <TableCell>{sku}</TableCell>}
+                                                {type === 'sale' && <TableCell>{itemName}</TableCell>}
                                                 <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
                                                 {type === 'sale' && <TableCell>{transaction.payment_method || '-'}</TableCell>}
                                                 <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
@@ -248,7 +252,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                     })}
                                     {filteredTransactions.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={type === 'sale' ? 7 : 5} align="center" sx={{ py: 4 }}>
+                                            <TableCell colSpan={type === 'sale' ? 8 : 5} align="center" sx={{ py: 4 }}>
                                                 <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
                                             </TableCell>
                                         </TableRow>
