@@ -212,7 +212,9 @@ export default function Transactions({ type }: TransactionsProps) {
                                     <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Entry No.</TableCell>
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
+                                        {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU Code</TableCell>}
                                         <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>{type === 'purchase' ? 'Vendor Name' : 'Customer Name'}</TableCell>
+                                        {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Payment Mode</TableCell>}
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
@@ -220,11 +222,18 @@ export default function Transactions({ type }: TransactionsProps) {
                                 <TableBody>
                                     {filteredTransactions.map((transaction, idx) => {
                                         const partnerName = partners.find(p => p.id === transaction.partner_id)?.name || transaction.partner_id;
+                                        // For sales, show first item's SKU and payment mode
+                                        let sku = '-';
+                                        if (type === 'sale' && transaction.items && transaction.items.length > 0) {
+                                            sku = transaction.items[0]?.product?.sku || '-';
+                                        }
                                         return (
                                             <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                                 <TableCell>{idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
+                                                {type === 'sale' && <TableCell>{sku}</TableCell>}
                                                 <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
+                                                {type === 'sale' && <TableCell>{transaction.payment_method || '-'}</TableCell>}
                                                 <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
                                                 <TableCell align="center">
                                                     <IconButton size="small" color="primary" onClick={() => handleView(transaction)}><VisibilityIcon fontSize="small" /></IconButton>
