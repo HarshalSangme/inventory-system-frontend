@@ -287,6 +287,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 <Table size="small">
                     <TableHead>
                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                            <TableCell sx={{ fontWeight: 700, width: 60 }}>SR. NO.</TableCell>
                             <TableCell sx={{ fontWeight: 700, minWidth: 240, maxWidth: 320, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Product</TableCell>
                             <TableCell align="center" sx={{ fontWeight: 700, minWidth: 120 }}>SKU Code</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 700, width: 90 }}>Qty</TableCell>
@@ -323,6 +324,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                     '&:hover': { bgcolor: '#f3f6fd' },
                                     transition: 'background-color 0.2s'
                                 }}>
+                                    <TableCell>{index + 1}</TableCell>
                                     <TableCell>
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <Box sx={{ display: 'flex', gap: 1 }}>

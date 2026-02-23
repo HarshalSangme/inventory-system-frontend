@@ -309,6 +309,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                 <Table size="small">
                                     <TableHead>
                                         <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableCell sx={{ width: 60 }}>SR. NO.</TableCell>
                                             <TableCell>Product</TableCell>
                                             <TableCell align="right">Qty</TableCell>
                                             <TableCell align="right">Cost Price</TableCell>
@@ -330,6 +331,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                             const itemNet = itemAmtAfterDisc + itemVat;
                                             return (
                                                 <TableRow key={index}>
+                                                    <TableCell>{index + 1}</TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2" fontWeight="medium">{item.product?.name || `Product #${item.product_id}`}</Typography>
                                                         <Typography variant="caption" color="text.secondary">{item.product?.sku}</Typography>
