@@ -49,9 +49,14 @@ export const createTransaction = async (transaction: TransactionCreate) => {
 };
 
 // Implement getTransactions if needed for the list view
-export const getTransactions = async () => {
-    // Backend doesn't support filter by type in root endpoint yet, so assume we get all or filter client side for now/update backend later
-    const response = await api.get<Transaction[]>('/transactions/');
+export const getTransactions = async (fromDate?: string, toDate?: string) => {
+    // Send date filters as query params if provided
+    let url = '/transactions/';
+    const params: string[] = [];
+    if (fromDate) params.push(`from_date=${encodeURIComponent(fromDate)}`);
+    if (toDate) params.push(`to_date=${encodeURIComponent(toDate)}`);
+    if (params.length) url += '?' + params.join('&');
+    const response = await api.get<Transaction[]>(url);
     return response.data;
 };
 

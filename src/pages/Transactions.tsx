@@ -74,12 +74,13 @@ export default function Transactions({ type }: TransactionsProps) {
         }
     };
 
+    // Fetch transactions from backend with date filters
     useEffect(() => {
         const loadTransactionsAndPartners = async () => {
             setLoading(true);
             try {
                 const [txData, partnerData] = await Promise.all([
-                    getTransactions(),
+                    getTransactions(dateFrom || undefined, dateTo || undefined),
                     getPartners()
                 ]);
                 setTransactions(txData.filter(t => t.type === type));
@@ -91,12 +92,12 @@ export default function Transactions({ type }: TransactionsProps) {
             }
         };
         loadTransactionsAndPartners();
-    }, [type]);
+    }, [type, dateFrom, dateTo]);
 
     const refreshTransactions = async () => {
         try {
             const [txData, partnerData] = await Promise.all([
-                getTransactions(),
+                getTransactions(dateFrom || undefined, dateTo || undefined),
                 getPartners()
             ]);
             setTransactions(txData.filter(t => t.type === type));
@@ -112,13 +113,7 @@ export default function Transactions({ type }: TransactionsProps) {
         t.id.toString().includes(searchTerm) ||
         new Date(t.date).toLocaleDateString().includes(searchTerm)
     );
-    // Date range filter
-    if (dateFrom) {
-        filteredTransactions = filteredTransactions.filter(t => new Date(t.date) >= new Date(dateFrom));
-    }
-    if (dateTo) {
-        filteredTransactions = filteredTransactions.filter(t => new Date(t.date) <= new Date(dateTo));
-    }
+    // Date filtering now handled server-side
     // Sort by date descending
     filteredTransactions = filteredTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -253,7 +248,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                     })}
                                     {filteredTransactions.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                            <TableCell colSpan={type === 'sale' ? 7 : 5} align="center" sx={{ py: 4 }}>
                                                 <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
                                             </TableCell>
                                         </TableRow>
