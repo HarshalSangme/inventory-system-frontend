@@ -15,6 +15,7 @@ export interface TransactionItem {
     price: number;
     discount: number;
     vat_percent?: number;
+    sku?: string; // Allow user-typed SKU to be sent to backend
     product?: {
         name: string;
         sku: string;

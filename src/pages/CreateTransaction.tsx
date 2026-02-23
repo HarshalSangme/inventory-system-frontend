@@ -312,6 +312,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     <TableBody>
                         {items.map((item, index) => {
                             const selectedProduct = products.find(p => p.id === item.product_id);
+                            // SKU field value: use item.sku if present, else selectedProduct?.sku
+                            const skuFieldValue = typeof item.sku === 'string' ? item.sku : (selectedProduct?.sku || '');
                             const itemAmtAfterDisc = getItemAmtAfterDisc(item);
                             // itemVat is used below inline
                             const itemNet = getItemNet(item);
@@ -361,13 +363,18 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                     placeholder="Enter SKU"
                                                     size="small"
                                                     sx={{ flex: 1, minWidth: 100 }}
-                                                    value={selectedProduct?.sku || ''}
+                                                    value={skuFieldValue}
                                                     onChange={e => {
                                                         if (role === 'viewonly') return;
-                                                        const sku = e.target.value.trim();
-                                                        const found = products.find(p => p.sku && p.sku.toLowerCase() === sku.toLowerCase());
+                                                        const sku = e.target.value;
+                                                        const newItems = [...items];
+                                                        newItems[index] = {
+                                                            ...newItems[index],
+                                                            sku
+                                                        };
+                                                        // If SKU matches a product, auto-select it
+                                                        const found = products.find(p => p.sku && p.sku.toLowerCase() === sku.trim().toLowerCase());
                                                         if (found) {
-                                                            const newItems = [...items];
                                                             newItems[index] = {
                                                                 ...newItems[index],
                                                                 product_id: found.id,
@@ -375,8 +382,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                                 quantity: 1,
                                                                 discount: 0
                                                             };
-                                                            setItems(newItems);
                                                         }
+                                                        setItems(newItems);
                                                     }}
                                                     disabled={role === 'viewonly'}
                                                 />
