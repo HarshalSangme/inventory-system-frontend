@@ -149,10 +149,36 @@ export default function Reports() {
             return;
         }
 
-        // Convert to CSV
-        const headers = Object.keys(data[0]).join(',');
-        const rows = data.map(row => Object.values(row).join(',')).join('\n');
-        const csv = `${headers}\n${rows}`;
+        // Move 'Amount' column to the end and add total row for sales report
+        let csv = '';
+        if (reportId === 'sales' && data.length > 0) {
+            // Move 'Amount' to end
+            const keys = Object.keys(data[0]);
+            const amountIdx = keys.indexOf('Amount');
+            if (amountIdx !== -1) {
+                keys.splice(amountIdx, 1);
+                keys.push('Amount');
+            }
+            const headers = keys.join(',');
+            let totalAmount = 0;
+            const rows = data.map(row => {
+                const rowAny = row as any;
+                const rowArr = keys.map(k => rowAny[k]);
+                // Sum up Amount column
+                const amt = parseFloat(rowAny['Amount']);
+                if (!isNaN(amt)) totalAmount += amt;
+                return rowArr.join(',');
+            });
+            // Add total row
+            const totalRow = Array(keys.length).fill('');
+            totalRow[keys.length - 1] = totalAmount.toFixed(2);
+            rows.push(totalRow.join(','));
+            csv = `${headers}\n${rows.join('\n')}`;
+        } else {
+            const headers = Object.keys(data[0]).join(',');
+            const rows = data.map(row => Object.values(row).join(',')).join('\n');
+            csv = `${headers}\n${rows}`;
+        }
 
         // Download
         const blob = new Blob([csv], { type: 'text/csv' });
