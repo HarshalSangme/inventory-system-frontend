@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Checkbox from '@mui/material/Checkbox';
 import { useUser } from '../context/UserContext';
 import {
     Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton,
@@ -36,6 +37,22 @@ export default function Reports() {
     const [currentReport, setCurrentReport] = useState<ReportType | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    // Date range state for sales report
+    const [fromDate, setFromDate] = useState<string | null>(null);
+    const [toDate, setToDate] = useState<string | null>(null);
+
+    // Selection state for sales report
+    const [selectedSales, setSelectedSales] = useState<number[]>([]);
+
+    // ...existing code...
+
+    // Reload sales data when date range changes in preview
+    useEffect(() => {
+        if (previewOpen && currentReport === 'sales') {
+            loadData();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fromDate, toDate]);
 
     // Data States
     const [products, setProducts] = useState<Product[]>([]);
@@ -52,9 +69,16 @@ export default function Reports() {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [productsData, transactionsData, partnersData] = await Promise.all([
+            let transactionsData;
+            // Format dates as YYYY-MM-DD for backend
+            const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
+            if (currentReport === 'sales' && (fromDate || toDate)) {
+                transactionsData = await getTransactions(formatDate(fromDate), formatDate(toDate));
+            } else {
+                transactionsData = await getTransactions();
+            }
+            const [productsData, partnersData] = await Promise.all([
                 getProducts(),
-                getTransactions(),
                 getPartners()
             ]);
             setProducts(productsData);
@@ -72,12 +96,53 @@ export default function Reports() {
         setCurrentReport(reportId);
         setPreviewOpen(true);
         setSearchTerm('');
+        // Reset date range when opening preview
+        setFromDate(null);
+        setToDate(null);
         await loadData();
     };
 
-    const handleExport = (reportId: ReportType) => {
+    const handleExport = async (reportId: ReportType) => {
         const report = reports.find(r => r.id === reportId);
-        const data = getReportData(reportId);
+        let data = getReportData(reportId);
+
+        // For sales report, fetch filtered transactions if date range is set
+        if (reportId === 'sales') {
+            setLoading(true);
+            try {
+                const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
+                const filteredTransactions = await getTransactions(formatDate(fromDate), formatDate(toDate));
+                setTransactions(filteredTransactions); // update state for preview consistency
+                // Only include selected sales if any are selected
+                let exportSales = filteredTransactions.filter(t => t.type === 'sale');
+                if (selectedSales.length > 0) {
+                    exportSales = exportSales.filter(t => selectedSales.includes(t.id));
+                }
+                const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
+                data = exportSales.map((t, idx) => {
+                    let itemName = '-';
+                    if (t.items && t.items.length > 0) {
+                        const item = t.items[0];
+                        itemName = item.product?.name || '-';
+                    }
+                    return {
+                        'Sr. No.': idx + 1,
+                        'Date': new Date(t.date).toLocaleDateString(),
+                        'Customer': partnerMap[t.partner_id] || 'Unknown',
+                        'Item Name': itemName,
+                        'Amount': t.total_amount.toFixed(2),
+                        'Payment Method': t.payment_method || '-',
+                        'Sales Person': t.sales_person || '-',
+                        'Status': 'Completed',
+                    };
+                });
+            } catch (error) {
+                setSnackbar({ open: true, message: 'Failed to export filtered sales data', severity: 'error' });
+                setLoading(false);
+                return;
+            }
+            setLoading(false);
+        }
 
         if (!data.length) {
             setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
@@ -129,17 +194,23 @@ export default function Reports() {
                     const sales = transactions.filter(t => t.type === 'sale');
                     if (sales.length === 0) return [];
                     const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-                    const filtered = sales.filter(s => {
-                        const partnerName = partnerMap[s.partner_id] || 'Unknown';
-                        return partnerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    return sales.map((t, idx) => {
+                        let itemName = '-';
+                        if (t.items && t.items.length > 0) {
+                            const item = t.items[0];
+                            itemName = item.product?.name || '-';
+                        }
+                        return {
+                            'Sr. No.': idx + 1,
+                            'Date': new Date(t.date).toLocaleDateString(),
+                            'Customer': partnerMap[t.partner_id] || 'Unknown',
+                            'Item Name': itemName,
+                            'Amount': t.total_amount.toFixed(2),
+                            'Payment Method': t.payment_method || '-',
+                            'Sales Person': t.sales_person || '-',
+                            'Status': 'Completed',
+                        };
                     });
-                    return filtered.map(t => ({
-                        'Date': new Date(t.date).toLocaleDateString(),
-                        'Customer': partnerMap[t.partner_id] || 'Unknown',
-                        'Total Amount': t.total_amount.toFixed(2),
-                        'VAT %': t.vat_percent || 0,
-                        'Items': t.items?.length || 0
-                    }));
                 }
                 case 'purchase': {
                     if (!transactions || transactions.length === 0) return [];
@@ -203,6 +274,18 @@ export default function Reports() {
         }
     };
 
+    // Handler for selecting/deselecting sales
+    const handleSaleSelect = (id: number) => {
+        setSelectedSales(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]);
+    };
+    const handleSelectAllSales = (ids: number[]) => {
+        if (selectedSales.length === ids.length) {
+            setSelectedSales([]);
+        } else {
+            setSelectedSales(ids);
+        }
+    };
+
     const renderPreviewContent = () => {
         if (loading) {
             return (
@@ -235,7 +318,15 @@ export default function Reports() {
             case 'stock':
                 return <StockReportPreview data={data} products={products} searchTerm={searchTerm} />;
             case 'sales':
-                return <SalesReportPreview data={data} transactions={transactions.filter(t => t.type === 'sale')} partners={partners} searchTerm={searchTerm} />;
+                return <SalesReportPreview 
+                    data={data}
+                    transactions={transactions.filter(t => t.type === 'sale')}
+                    partners={partners}
+                    searchTerm={searchTerm}
+                    selectedSales={selectedSales}
+                    onSaleSelect={handleSaleSelect}
+                    onSelectAllSales={handleSelectAllSales}
+                />;
             case 'purchase':
                 return <PurchaseReportPreview data={data} transactions={transactions.filter(t => t.type === 'purchase')} partners={partners} searchTerm={searchTerm} />;
             case 'profit':
@@ -352,15 +443,16 @@ export default function Reports() {
                     </IconButton>
                 </DialogTitle>
 
+
                 <DialogContent sx={{ p: 3, bgcolor: '#f5f5f5', pt: 3 }}>
                     {currentReport && ['stock', 'sales', 'purchase'].includes(currentReport) && (
-                        <Box sx={{ mb: 2 }}>
+                        <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             <TextField
                                 fullWidth
                                 placeholder="Search..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                sx={{ bgcolor: 'white' }}
+                                sx={{ bgcolor: 'white', flex: 2 }}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
@@ -369,6 +461,28 @@ export default function Reports() {
                                     )
                                 }}
                             />
+                            {currentReport === 'sales' && (
+                                <>
+                                    <TextField
+                                        label="From Date"
+                                        type="date"
+                                        size="small"
+                                        value={fromDate || ''}
+                                        onChange={e => setFromDate(e.target.value || null)}
+                                        sx={{ bgcolor: 'white', minWidth: 150, flex: 1 }}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                    <TextField
+                                        label="To Date"
+                                        type="date"
+                                        size="small"
+                                        value={toDate || ''}
+                                        onChange={e => setToDate(e.target.value || null)}
+                                        sx={{ bgcolor: 'white', minWidth: 150, flex: 1 }}
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                </>
+                            )}
                         </Box>
                     )}
 
@@ -536,7 +650,15 @@ function StockReportPreview({ data, products, searchTerm }: { data: any[], produ
 }
 
 // Sales Report Preview Component
-function SalesReportPreview({ data, transactions, partners, searchTerm }: { data: any[], transactions: Transaction[], partners: Partner[], searchTerm: string }) {
+function SalesReportPreview({ data, transactions, partners, searchTerm, selectedSales = [], onSaleSelect = () => {}, onSelectAllSales = () => {} }: {
+    data: any[],
+    transactions: Transaction[],
+    partners: Partner[],
+    searchTerm: string,
+    selectedSales?: number[],
+    onSaleSelect?: (id: number) => void,
+    onSelectAllSales?: (ids: number[]) => void
+}) {
     const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
     const filtered = transactions.filter(t => {
         const partnerName = partnerMap[t.partner_id] || 'Unknown';
@@ -557,6 +679,9 @@ function SalesReportPreview({ data, transactions, partners, searchTerm }: { data
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5)
         .map(([name, value]) => ({ name, value }));
+
+    // Get all sale IDs in filtered data order
+    const saleIds = transactions.map(t => t.id);
 
     return (
         <Box>
@@ -626,6 +751,14 @@ function SalesReportPreview({ data, transactions, partners, searchTerm }: { data
                     <Table size="small">
                         <TableHead>
                             <TableRow sx={{ bgcolor: '#f9f9f9' }}>
+                                <TableCell padding="checkbox">
+                                    <Checkbox
+                                        indeterminate={selectedSales.length > 0 && selectedSales.length < saleIds.length}
+                                        checked={saleIds.length > 0 && selectedSales.length === saleIds.length}
+                                        onChange={() => onSelectAllSales(saleIds)}
+                                        inputProps={{ 'aria-label': 'select all sales' }}
+                                    />
+                                </TableCell>
                                 {data.length > 0 && Object.keys(data[0]).map((key) => (
                                     <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
                                 ))}
@@ -634,7 +767,13 @@ function SalesReportPreview({ data, transactions, partners, searchTerm }: { data
                         <TableBody>
                             {data.length > 0 ? (
                                 data.map((row, idx) => (
-                                    <TableRow key={idx} hover>
+                                    <TableRow key={idx} hover selected={selectedSales.includes(transactions[idx].id)}>
+                                        <TableCell padding="checkbox">
+                                            <Checkbox
+                                                checked={selectedSales.includes(transactions[idx].id)}
+                                                onChange={() => onSaleSelect(transactions[idx].id)}
+                                            />
+                                        </TableCell>
                                         {Object.values(row).map((value: any, i) => (
                                             <TableCell key={i}>{value}</TableCell>
                                         ))}
@@ -642,7 +781,7 @@ function SalesReportPreview({ data, transactions, partners, searchTerm }: { data
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell align="center" sx={{ py: 4 }}>
+                                    <TableCell align="center" sx={{ py: 4 }} colSpan={data.length > 0 ? Object.keys(data[0]).length + 1 : 2}>
                                         <Typography color="text.secondary">No sales data to display</Typography>
                                     </TableCell>
                                 </TableRow>
