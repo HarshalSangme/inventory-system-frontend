@@ -410,6 +410,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                 setIsEditMode(false);
                                 setEditTransaction(null);
                                 refreshTransactions();
+                                if (window.__refreshProducts) window.__refreshProducts();
                             }}
                             editData={isEditMode && editTransaction ? editTransaction : undefined}
                             onEdit={async (data) => {

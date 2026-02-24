@@ -102,7 +102,7 @@ export default function Products() {
 
   // Form State
 
-  const [formData, setFormData] = useState<ProductForm>({
+  const [formData, setFormData] = useState<ProductForm & { _manualPrice?: boolean }>({
     name: "",
     sku: "",
     price: 0,
@@ -111,6 +111,7 @@ export default function Products() {
     min_stock_level: 5,
     description: "",
     category_id: null,
+    _manualPrice: false,
   });
 
   // Ensure modal always shows latest product data after refresh
@@ -127,6 +128,7 @@ export default function Products() {
           min_stock_level: latestProduct.min_stock_level,
           description: latestProduct.description || "",
           category_id: latestProduct.category_id || null,
+          _manualPrice: false,
         });
       }
     }
@@ -176,9 +178,9 @@ export default function Products() {
     }
     setSaving(true);
     try {
-      // Validation: Selling price cannot be less than cost price
-      if (formData.price < formData.cost_price) {
-        showSnackbar("Selling price cannot be less than cost price.", "error");
+      // Validation: Selling price must be at least 40% greater than cost price
+      if (formData.price < 1.4 * formData.cost_price) {
+        showSnackbar(`Selling price must be at least 40% greater than cost price (min: ${(1.4 * formData.cost_price).toFixed(2)}).`, "error");
         setSaving(false);
         return;
       }
@@ -196,9 +198,9 @@ export default function Products() {
         }
       }
       const productToSave = { ...formData, sku: uniqueSKU };
-      // Validation for edit: Selling price cannot be less than cost price
-      if (editingId && formData.price < formData.cost_price) {
-        showSnackbar("Selling price cannot be less than cost price.", "error");
+      // Validation for edit: Selling price must be at least 40% greater than cost price
+      if (editingId && formData.price < 1.4 * formData.cost_price) {
+        showSnackbar(`Selling price must be at least 40% greater than cost price (min: ${(1.4 * formData.cost_price).toFixed(2)}).`, "error");
         setSaving(false);
         return;
       }
@@ -821,8 +823,13 @@ export default function Products() {
                   type="number"
                   inputProps={{ step: "0.01", min: "0" }}
                   value={formData.price}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setFormData({ ...formData, price: Number(e.target.value) })
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setFormData({ ...formData, price: Number(e.target.value), _manualPrice: true });
+                  }}
+                  helperText={
+                    formData.cost_price > 0
+                      ? `Recommended Selling Price: ${(1.4 * formData.cost_price).toFixed(2)}`
+                      : ''
                   }
                 />
               </Grid>
@@ -834,12 +841,17 @@ export default function Products() {
                   type="number"
                   inputProps={{ step: "0.01", min: "0" }}
                   value={formData.cost_price}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setFormData({
-                      ...formData,
-                      cost_price: Number(e.target.value),
-                    })
-                  }
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const newCost = Number(e.target.value);
+                    setFormData(prev => {
+                      // If user hasn't manually overridden price, always update price instantly
+                      if (!prev._manualPrice) {
+                        return { ...prev, cost_price: newCost, price: +(1.4 * newCost).toFixed(2) };
+                      }
+                      // If user has overridden, only update cost price
+                      return { ...prev, cost_price: newCost };
+                    });
+                  }}
                 />
               </Grid>
             </Grid>

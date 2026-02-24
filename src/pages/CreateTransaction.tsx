@@ -167,8 +167,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         if (type === 'sale') {
             for (const item of items) {
                 const product = products.find(p => p.id === item.product_id);
-                if (product && item.price < product.cost_price) {
-                    showSnackbar(`Selling price (${item.price}) cannot be less than cost price (${product.cost_price}) for product '${product.name}'.`, 'error');
+                if (product && item.price < 1.4 * product.cost_price) {
+                    showSnackbar(`Selling price (${item.price}) must be at least 40% greater than cost price (${product.cost_price}) for product '${product.name}'. Minimum allowed: ${(1.4 * product.cost_price).toFixed(2)}`, 'error');
                     return;
                 }
             }
@@ -377,7 +377,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             label="SKU Code"
                                             placeholder="Enter SKU"
                                             size="small"
-                                            sx={{ minWidth: 100 }}
+                                            sx={{ minWidth: 100, mb: selectedProduct && type === 'purchase' ? 0.5 : 0 }}
                                             value={skuFieldValue}
                                             onChange={e => {
                                                 if (role === 'viewonly') return;
@@ -393,7 +393,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                     newItems[index] = {
                                                         ...newItems[index],
                                                         product_id: found.id,
-                                                        price: type === 'sale' ? (found.price || 0) : found.price || 0,
+                                                        price: type === 'sale' ? +(1.4 * (found.cost_price || 0)).toFixed(2) : found.price || 0,
                                                         quantity: 1,
                                                         discount: 0
                                                     };
@@ -402,6 +402,12 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             }}
                                             disabled={role === 'viewonly'}
                                         />
+                                        {selectedProduct && type === 'purchase' && (
+                                            <div style={{ fontSize: '0.85em', color: '#1976d2', marginTop: 2, lineHeight: 1.2 }}>
+                                                <span>Closing Stock: <b>{selectedProduct.stock_quantity}</b></span><br />
+                                                <span>After Purchase: <b>{selectedProduct.stock_quantity + (item.quantity || 0)}</b></span>
+                                            </div>
+                                        )}
                                     </TableCell>
                                     <TableCell align="right">
                                         <TextField
@@ -418,9 +424,20 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                     <TableCell align="right">
                                         <TextField
                                             type="number"
-                                            inputProps={{ min: 0, step: '0.001', style: { textAlign: 'right' } }}
+                                            inputProps={{ min: (() => {
+                                                const prod = products.find(p => p.id === item.product_id);
+                                                return type === 'sale' && prod ? (1.4 * (prod.cost_price || 0)).toFixed(3) : 0;
+                                            })(), step: '0.001', style: { textAlign: 'right' } }}
                                             value={item.price}
-                                            onChange={e => updateItem(index, 'price', Number(e.target.value))}
+                                            onChange={e => {
+                                                const prod = products.find(p => p.id === item.product_id);
+                                                let val = Number(e.target.value);
+                                                if (type === 'sale' && prod) {
+                                                    const minPrice = +(1.4 * (prod.cost_price || 0)).toFixed(3);
+                                                    if (val < minPrice) val = minPrice;
+                                                }
+                                                updateItem(index, 'price', val);
+                                            }}
                                             size="small"
                                             fullWidth
                                             required
@@ -430,6 +447,10 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                     color: item.discount > 0 ? '#e65100' : 'inherit'
                                                 }
                                             }}
+                                            helperText={(() => {
+                                                const prod = products.find(p => p.id === item.product_id);
+                                                return prod && type === 'sale' ? `Recommended Selling Price: ${(1.4 * (prod.cost_price || 0)).toFixed(2)}` : '';
+                                            })()}
                                         />
                                     </TableCell>
                                     <TableCell align="right">
