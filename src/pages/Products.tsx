@@ -66,7 +66,7 @@ export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [searchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "">("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -509,8 +509,19 @@ export default function Products() {
 
       {/* Search & Filter */}
       <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} md={6}>
-          {/* Category filter with Autocomplete */}
+        <Grid item xs={8}>
+          <TextField
+            label="Search Products"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            size="small"
+            fullWidth
+            placeholder="Search by name or SKU..."
+            sx={{ minHeight: 40 }}
+            InputProps={{ sx: { height: 40 } }}
+          />
+        </Grid>
+        <Grid item xs={4}>
           <Autocomplete
             options={categories}
             getOptionLabel={(option: Category) => option.name}
@@ -523,14 +534,17 @@ export default function Products() {
                 {...params}
                 label="Filter by Category"
                 size="small"
-                sx={{ minWidth: 220, mr: 2 }}
+                fullWidth
                 placeholder="Search category..."
+                sx={{ minHeight: 40 }}
+                InputProps={{ ...params.InputProps, sx: { height: 40 } }}
               />
             )}
             isOptionEqualToValue={(option: Category, value: Category) =>
               option.id === value.id
             }
             clearOnEscape
+            sx={{ minHeight: 40 }}
           />
         </Grid>
       </Grid>
