@@ -121,14 +121,18 @@ export default function Reports() {
                 const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
                 data = exportSales.map((t, idx) => {
                     let itemName = '-';
+                    let skuCode = '-';
                     if (t.items && t.items.length > 0) {
                         const item = t.items[0];
-                        itemName = item.product?.name || '-';
+                        // Always use item.product.sku for SKU Code
+                        skuCode = (item.product && item.product.sku) ? item.product.sku : '-';
+                        itemName = (item.product && item.product.name) ? item.product.name : '-';
                     }
                     return {
                         'Sr. No.': idx + 1,
                         'Date': new Date(t.date).toLocaleDateString(),
                         'Customer': partnerMap[t.partner_id] || 'Unknown',
+                        'SKU Code': skuCode,
                         'Item Name': itemName,
                         'Amount': t.total_amount.toFixed(2),
                         'Payment Method': t.payment_method || '-',
@@ -152,13 +156,8 @@ export default function Reports() {
         // Move 'Amount' column to the end and add total row for sales report
         let csv = '';
         if (reportId === 'sales' && data.length > 0) {
-            // Move 'Amount' to end
-            const keys = Object.keys(data[0]);
-            const amountIdx = keys.indexOf('Amount');
-            if (amountIdx !== -1) {
-                keys.splice(amountIdx, 1);
-                keys.push('Amount');
-            }
+            // Force column order for sales report
+            const keys = ['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'];
             const headers = keys.join(',');
             let totalAmount = 0;
             const rows = data.map(row => {
@@ -222,14 +221,17 @@ export default function Reports() {
                     const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
                     return sales.map((t, idx) => {
                         let itemName = '-';
+                        let skuCode = '-';
                         if (t.items && t.items.length > 0) {
                             const item = t.items[0];
-                            itemName = item.product?.name || '-';
+                            skuCode = (item.product && item.product.sku) ? item.product.sku : '-';
+                            itemName = (item.product && item.product.name) ? item.product.name : '-';
                         }
                         return {
                             'Sr. No.': idx + 1,
                             'Date': new Date(t.date).toLocaleDateString(),
                             'Customer': partnerMap[t.partner_id] || 'Unknown',
+                            'SKU Code': skuCode,
                             'Item Name': itemName,
                             'Amount': t.total_amount.toFixed(2),
                             'Payment Method': t.payment_method || '-',
@@ -785,7 +787,7 @@ function SalesReportPreview({ data, transactions, partners, searchTerm, selected
                                         inputProps={{ 'aria-label': 'select all sales' }}
                                     />
                                 </TableCell>
-                                {data.length > 0 && Object.keys(data[0]).map((key) => (
+                                {['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'].map((key) => (
                                     <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
                                 ))}
                             </TableRow>
@@ -800,14 +802,14 @@ function SalesReportPreview({ data, transactions, partners, searchTerm, selected
                                                 onChange={() => onSaleSelect(transactions[idx].id)}
                                             />
                                         </TableCell>
-                                        {Object.values(row).map((value: any, i) => (
-                                            <TableCell key={i}>{value}</TableCell>
+                                        {['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'].map((key, i) => (
+                                            <TableCell key={i}>{row[key] ?? '-'}</TableCell>
                                         ))}
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell align="center" sx={{ py: 4 }} colSpan={data.length > 0 ? Object.keys(data[0]).length + 1 : 2}>
+                                    <TableCell align="center" sx={{ py: 4 }} colSpan={10}>
                                         <Typography color="text.secondary">No sales data to display</Typography>
                                     </TableCell>
                                 </TableRow>
