@@ -625,7 +625,7 @@ export default function Products() {
                         />
                       </TableCell>
                       <TableCell align="center">
-                        <IconButton size="small" onClick={() => {/* TODO: implement details view */}}>
+                        <IconButton size="small" onClick={() => {/* TODO: implement details view */ }}>
                           <DetailsIcon fontSize="small" />
                         </IconButton>
                       </TableCell>
@@ -766,97 +766,149 @@ export default function Products() {
             >
               <DialogTitle>Manage Categories</DialogTitle>
               <DialogContent>
-                <Box display="flex" gap={1} mb={2}>
-                  <TextField
-                    label="New Category Name"
-                    value={newCategoryName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                      setNewCategoryName(e.target.value)
-                    }
-                    fullWidth
-                    error={!!categoryError}
-                    helperText={categoryError}
-                  />
-                  <TextField
-                    label="Margin %"
-                    type="number"
-                    value={newCategoryMargin}
-                    onChange={e => setNewCategoryMargin(Number(e.target.value))}
-                    inputProps={{ min: 0, max: 100, step: 0.1 }}
-                    sx={{ width: 120 }}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={async () => {
-                      if (!newCategoryName.trim()) {
-                        setCategoryError("Name required");
-                        return;
+                <Grid container spacing={1} sx={{ mb: 3 }}>
+                  <Grid item xs={7}>
+                    <TextField
+                      label="New Category Name"
+                      value={newCategoryName}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                        setNewCategoryName(e.target.value)
                       }
-                      setCategoryError("");
-                      try {
-                        await createCategory({ name: newCategoryName, margin_percent: newCategoryMargin });
-                        setNewCategoryName("");
-                        setNewCategoryMargin(40);
-                        await loadCategories();
-                      } catch {
-                        setCategoryError("Failed to add");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
-                </Box>
-                <Box>
-                  {categories.map((cat) => (
-                    <Box
-                      key={cat.id}
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      mb={1}
-                      gap={1}
-                    >
-                      <span>{cat.name}</span>
-                      <TextField
-                        label="Margin %"
-                        type="number"
-                        size="small"
-                        value={categoryMargins[cat.id] ?? 40}
-                        onChange={e => {
-                          const val = Number(e.target.value);
-                          setCategoryMargins(prev => ({ ...prev, [cat.id]: val }));
-                        }}
-                        onBlur={async () => {
-                          const margin = categoryMargins[cat.id] ?? 40;
-                          if (margin !== (cat.margin_percent ?? 40)) {
-                            setSavingMargin(prev => ({ ...prev, [cat.id]: true }));
-                            try {
-                              await updateCategory(cat.id, { name: cat.name, margin_percent: margin });
-                              await loadCategories();
-                              showSnackbar('Margin updated', 'success');
-                            } catch {
-                              showSnackbar('Failed to update margin', 'error');
-                            } finally {
-                              setSavingMargin(prev => ({ ...prev, [cat.id]: false }));
-                            }
-                          }
-                        }}
-                        inputProps={{ min: 0, max: 100, step: 0.1 }}
-                        sx={{ width: 90 }}
-                        disabled={!!savingMargin[cat.id]}
-                      />
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={async () => {
-                          await deleteCategory(cat.id);
+                      fullWidth
+                      size="small"
+                      error={!!categoryError}
+                      helperText={categoryError}
+                    />
+                  </Grid>
+                  <Grid item xs={3}>
+                    <TextField
+                      label="Margin %"
+                      type="number"
+                      size="small"
+                      fullWidth
+                      value={newCategoryMargin}
+                      onChange={e => setNewCategoryMargin(Number(e.target.value))}
+                      inputProps={{ min: 0, max: 100, step: 0.1 }}
+                    />
+                  </Grid>
+                  <Grid item xs={2}>
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      onClick={async () => {
+                        if (!newCategoryName.trim()) {
+                          setCategoryError("Name required");
+                          return;
+                        }
+                        setCategoryError("");
+                        try {
+                          await createCategory({ name: newCategoryName, margin_percent: newCategoryMargin });
+                          setNewCategoryName("");
+                          setNewCategoryMargin(40);
                           await loadCategories();
-                        }}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
+                        } catch {
+                          setCategoryError("Failed to add");
+                        }
+                      }}
+                      sx={{ height: '40px' }}
+                    >
+                      Add
+                    </Button>
+                  </Grid>
+                </Grid>
+                <Box sx={{ mt: 1 }}>
+                  {/* Header Row */}
+                  {categories.length > 0 && (
+                    <Grid container spacing={1} sx={{ mb: 1.5, px: 1, borderBottom: '1px solid #eee', pb: 0.5 }}>
+                      <Grid item xs={7}>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase' }}>
+                          Category Name
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={3}>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase' }}>
+                          Margin %
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase' }}>
+                          Action
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  )}
+                  {categories.map((cat) => (
+                    <Grid
+                      container
+                      key={cat.id}
+                      spacing={1}
+                      alignItems="center"
+                      sx={{
+                        mb: 1.5,
+                        px: 1,
+                        py: 0.5,
+                        borderRadius: 1,
+                        '&:hover': { backgroundColor: '#f9f9f9' }
+                      }}
+                    >
+                      <Grid item xs={7}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {cat.name}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={3}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          fullWidth
+                          value={categoryMargins[cat.id] ?? 40}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setCategoryMargins(prev => ({ ...prev, [cat.id]: val }));
+                          }}
+                          onBlur={async () => {
+                            const margin = categoryMargins[cat.id] ?? 40;
+                            if (margin !== (cat.margin_percent ?? 40)) {
+                              setSavingMargin(prev => ({ ...prev, [cat.id]: true }));
+                              try {
+                                await updateCategory(cat.id, { name: cat.name, margin_percent: margin });
+                                await loadCategories();
+                                showSnackbar('Margin updated', 'success');
+                              } catch {
+                                showSnackbar('Failed to update margin', 'error');
+                              } finally {
+                                setSavingMargin(prev => ({ ...prev, [cat.id]: false }));
+                              }
+                            }
+                          }}
+                          inputProps={{ min: 0, max: 100, step: 0.1, style: { padding: '8.5px 14px' } }}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              backgroundColor: '#fff'
+                            }
+                          }}
+                          disabled={!!savingMargin[cat.id]}
+                        />
+                      </Grid>
+                      <Grid item xs={2} sx={{ textAlign: 'center' }}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={async () => {
+                            await deleteCategory(cat.id);
+                            await loadCategories();
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Grid>
+                    </Grid>
                   ))}
+                  {categories.length === 0 && (
+                    <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 2 }}>
+                      No categories found. Add one above.
+                    </Typography>
+                  )}
                 </Box>
               </DialogContent>
               <DialogActions>
