@@ -191,9 +191,13 @@ export default function Products() {
     }
     setSaving(true);
     try {
-      // Validation: Selling price must be at least 40% greater than cost price
-      if (formData.price < 1.4 * formData.cost_price) {
-        showSnackbar(`Selling price must be at least 40% greater than cost price (min: ${(1.4 * formData.cost_price).toFixed(2)}).`, "error");
+      // Validation: Selling price must respect category margin
+      const cat = categories.find(c => c.id === formData.category_id);
+      const marginPercent = cat?.margin_percent ?? 0; // Default to 0 if no category selected
+      const minPrice = formData.cost_price * (1 + marginPercent / 100);
+
+      if (formData.price < minPrice) {
+        showSnackbar(`Selling price must be at least ${marginPercent}% greater than cost price (min: ${minPrice.toFixed(2)}).`, "error");
         setSaving(false);
         return;
       }
@@ -211,12 +215,7 @@ export default function Products() {
         }
       }
       const productToSave = { ...formData, sku: uniqueSKU };
-      // Validation for edit: Selling price must be at least 40% greater than cost price
-      if (editingId && formData.price < 1.4 * formData.cost_price) {
-        showSnackbar(`Selling price must be at least 40% greater than cost price (min: ${(1.4 * formData.cost_price).toFixed(2)}).`, "error");
-        setSaving(false);
-        return;
-      }
+      // The edit validation has been merged into the main validation above
       if (editingId) {
         await updateProduct(editingId, productToSave);
         showSnackbar("Product updated successfully", "success");
