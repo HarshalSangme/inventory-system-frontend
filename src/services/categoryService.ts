@@ -4,6 +4,7 @@ export interface Category {
     id: number;
     name: string;
     description?: string;
+    margin_percent?: number;
 }
 
 export const getCategories = async () => {

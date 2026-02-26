@@ -12,6 +12,7 @@ import {
 import {
   getCategories,
   createCategory,
+  updateCategory,
   deleteCategory,
 } from "../services/categoryService";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -98,6 +99,7 @@ export default function Products() {
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryMargin, setNewCategoryMargin] = useState<number>(40);
   const [categoryError, setCategoryError] = useState("");
 
   // Form State
@@ -764,6 +766,14 @@ export default function Products() {
                     error={!!categoryError}
                     helperText={categoryError}
                   />
+                  <TextField
+                    label="Margin %"
+                    type="number"
+                    value={newCategoryMargin}
+                    onChange={e => setNewCategoryMargin(Number(e.target.value))}
+                    inputProps={{ min: 0, max: 100, step: 0.1 }}
+                    sx={{ width: 120 }}
+                  />
                   <Button
                     variant="contained"
                     onClick={async () => {
@@ -773,8 +783,9 @@ export default function Products() {
                       }
                       setCategoryError("");
                       try {
-                        await createCategory({ name: newCategoryName });
+                        await createCategory({ name: newCategoryName, margin_percent: newCategoryMargin });
                         setNewCategoryName("");
+                        setNewCategoryMargin(40);
                         await loadCategories();
                       } catch {
                         setCategoryError("Failed to add");
@@ -785,27 +796,56 @@ export default function Products() {
                   </Button>
                 </Box>
                 <Box>
-                  {categories.map((cat) => (
-                    <Box
-                      key={cat.id}
-                      display="flex"
-                      alignItems="center"
-                      justifyContent="space-between"
-                      mb={1}
-                    >
-                      <span>{cat.name}</span>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={async () => {
-                          await deleteCategory(cat.id);
-                          await loadCategories();
-                        }}
+                  {categories.map((cat) => {
+                    const [margin, setMargin] = useState<number>(cat.margin_percent ?? 40);
+                    const [savingMargin, setSavingMargin] = useState(false);
+                    return (
+                      <Box
+                        key={cat.id}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        mb={1}
+                        gap={1}
                       >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  ))}
+                        <span>{cat.name}</span>
+                        <TextField
+                          label="Margin %"
+                          type="number"
+                          size="small"
+                          value={margin}
+                          onChange={e => setMargin(Number(e.target.value))}
+                          onBlur={async () => {
+                            if (margin !== (cat.margin_percent ?? 40)) {
+                              setSavingMargin(true);
+                              try {
+                                await updateCategory(cat.id, { name: cat.name, margin_percent: margin });
+                                await loadCategories();
+                                showSnackbar('Margin updated', 'success');
+                              } catch {
+                                showSnackbar('Failed to update margin', 'error');
+                              } finally {
+                                setSavingMargin(false);
+                              }
+                            }
+                          }}
+                          inputProps={{ min: 0, max: 100, step: 0.1 }}
+                          sx={{ width: 90 }}
+                          disabled={savingMargin}
+                        />
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={async () => {
+                            await deleteCategory(cat.id);
+                            await loadCategories();
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    );
+                  })}
                 </Box>
               </DialogContent>
               <DialogActions>
@@ -826,11 +866,15 @@ export default function Products() {
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                     setFormData({ ...formData, price: Number(e.target.value), _manualPrice: true });
                   }}
-                  helperText={
-                    formData.cost_price > 0
-                      ? `Recommended Selling Price: ${(1.4 * formData.cost_price).toFixed(2)}`
-                      : ''
-                  }
+                  helperText={(() => {
+                    if (formData.cost_price > 0 && formData.category_id) {
+                      const cat = categories.find(c => c.id === formData.category_id);
+                      const margin = cat?.margin_percent ?? 40;
+                      const rec = formData.cost_price * (1 + margin / 100);
+                      return `Recommended Selling Price: ${rec.toFixed(2)} (Margin: ${margin}%)`;
+                    }
+                    return '';
+                  })()}
                 />
               </Grid>
               <Grid item xs={6}>
