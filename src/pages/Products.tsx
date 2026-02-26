@@ -101,6 +101,17 @@ export default function Products() {
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryMargin, setNewCategoryMargin] = useState<number>(40);
   const [categoryError, setCategoryError] = useState("");
+  // Margin edit state for existing categories
+  const [categoryMargins, setCategoryMargins] = useState<{ [id: number]: number }>({});
+  const [savingMargin, setSavingMargin] = useState<{ [id: number]: boolean }>({});
+  // Sync categoryMargins with categories
+  useEffect(() => {
+    const initial: { [id: number]: number } = {};
+    categories.forEach(cat => {
+      initial[cat.id] = cat.margin_percent ?? 40;
+    });
+    setCategoryMargins(initial);
+  }, [categories]);
 
   // Form State
 
@@ -796,56 +807,56 @@ export default function Products() {
                   </Button>
                 </Box>
                 <Box>
-                  {categories.map((cat) => {
-                    const [margin, setMargin] = useState<number>(cat.margin_percent ?? 40);
-                    const [savingMargin, setSavingMargin] = useState(false);
-                    return (
-                      <Box
-                        key={cat.id}
-                        display="flex"
-                        alignItems="center"
-                        justifyContent="space-between"
-                        mb={1}
-                        gap={1}
-                      >
-                        <span>{cat.name}</span>
-                        <TextField
-                          label="Margin %"
-                          type="number"
-                          size="small"
-                          value={margin}
-                          onChange={e => setMargin(Number(e.target.value))}
-                          onBlur={async () => {
-                            if (margin !== (cat.margin_percent ?? 40)) {
-                              setSavingMargin(true);
-                              try {
-                                await updateCategory(cat.id, { name: cat.name, margin_percent: margin });
-                                await loadCategories();
-                                showSnackbar('Margin updated', 'success');
-                              } catch {
-                                showSnackbar('Failed to update margin', 'error');
-                              } finally {
-                                setSavingMargin(false);
-                              }
+                  {categories.map((cat) => (
+                    <Box
+                      key={cat.id}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="space-between"
+                      mb={1}
+                      gap={1}
+                    >
+                      <span>{cat.name}</span>
+                      <TextField
+                        label="Margin %"
+                        type="number"
+                        size="small"
+                        value={categoryMargins[cat.id] ?? 40}
+                        onChange={e => {
+                          const val = Number(e.target.value);
+                          setCategoryMargins(prev => ({ ...prev, [cat.id]: val }));
+                        }}
+                        onBlur={async () => {
+                          const margin = categoryMargins[cat.id] ?? 40;
+                          if (margin !== (cat.margin_percent ?? 40)) {
+                            setSavingMargin(prev => ({ ...prev, [cat.id]: true }));
+                            try {
+                              await updateCategory(cat.id, { name: cat.name, margin_percent: margin });
+                              await loadCategories();
+                              showSnackbar('Margin updated', 'success');
+                            } catch {
+                              showSnackbar('Failed to update margin', 'error');
+                            } finally {
+                              setSavingMargin(prev => ({ ...prev, [cat.id]: false }));
                             }
-                          }}
-                          inputProps={{ min: 0, max: 100, step: 0.1 }}
-                          sx={{ width: 90 }}
-                          disabled={savingMargin}
-                        />
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={async () => {
-                            await deleteCategory(cat.id);
-                            await loadCategories();
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    );
-                  })}
+                          }
+                        }}
+                        inputProps={{ min: 0, max: 100, step: 0.1 }}
+                        sx={{ width: 90 }}
+                        disabled={!!savingMargin[cat.id]}
+                      />
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={async () => {
+                          await deleteCategory(cat.id);
+                          await loadCategories();
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
                 </Box>
               </DialogContent>
               <DialogActions>
