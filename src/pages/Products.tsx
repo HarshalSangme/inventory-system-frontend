@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import type { Product, ProductForm } from "../services/productService";
 import type { Category } from "../services/categoryService";
 import {
@@ -15,9 +15,14 @@ import {
   updateCategory,
   deleteCategory,
 } from "../services/categoryService";
+import { uploadProductImage, deleteProductImage } from "../services/imageUploadService";
+import ImageCropper from "../components/ImageCropper";
 import ConfirmDialog from "../components/ConfirmDialog";
 import DetailsIcon from "@mui/icons-material/Description";
 import LinearProgress from "@mui/material/LinearProgress";
+import Avatar from "@mui/material/Avatar";
+import ImageIcon from "@mui/icons-material/Image";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
 
 // Extend the Window interface to allow __refreshProducts
 declare global {
@@ -113,6 +118,13 @@ export default function Products() {
     setCategoryMargins(initial);
   }, [categories]);
 
+  // Image Upload State
+  const [cropperOpen, setCropperOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState("");
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Form State
 
   const [formData, setFormData] = useState<ProductForm & { _manualPrice?: boolean }>({
@@ -124,6 +136,7 @@ export default function Products() {
     min_stock_level: 5,
     description: "",
     category_id: null,
+    image_url: null,
     _manualPrice: false,
   });
 
@@ -141,8 +154,10 @@ export default function Products() {
           min_stock_level: latestProduct.min_stock_level,
           description: latestProduct.description || "",
           category_id: latestProduct.category_id || null,
+          image_url: latestProduct.image_url || null,
           _manualPrice: false,
         });
+        setImagePreview(latestProduct.image_url || null);
       }
     }
   }, [products, editingId, isModalOpen]);
@@ -225,6 +240,7 @@ export default function Products() {
       }
       setIsModalOpen(false);
       setEditingId(null);
+      setImagePreview(null);
       await loadProducts();
       setFormData({
         name: "",
@@ -235,6 +251,7 @@ export default function Products() {
         min_stock_level: 5,
         description: "",
         category_id: null,
+        image_url: null,
       });
     } catch (error: any) {
       console.error("Failed to create/update product", error);
@@ -295,7 +312,9 @@ export default function Products() {
         stock_quantity: 0,
         min_stock_level: 5,
         description: "",
+        image_url: null,
       });
+      setImagePreview(null);
       setIsModalOpen(true);
     } catch (error: any) {
       const msg =
@@ -586,6 +605,7 @@ export default function Products() {
                       />
                     </TableCell>
                     <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SR. NO.</TableCell>
+                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", width: 50 }}>Image</TableCell>
                     <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", minWidth: 240 }}>Product Name</TableCell>
                     <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SKU</TableCell>
                     <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Category</TableCell>
@@ -607,6 +627,15 @@ export default function Products() {
                         />
                       </TableCell>
                       <TableCell>{idx + 1}</TableCell>
+                      <TableCell sx={{ width: 50, p: 0.5 }}>
+                        <Avatar
+                          src={product.image_url || undefined}
+                          variant="rounded"
+                          sx={{ width: 40, height: 40, bgcolor: '#f0f0f0' }}
+                        >
+                          <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
+                        </Avatar>
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 500, minWidth: 240 }}>{product.name}</TableCell>
                       <TableCell>
                         <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{product.sku}</Typography>
@@ -643,7 +672,9 @@ export default function Products() {
                               min_stock_level: product.min_stock_level,
                               description: product.description || "",
                               category_id: product.category_id || null,
+                              image_url: product.image_url || null,
                             });
+                            setImagePreview(product.image_url || null);
                             setIsModalOpen(true);
                           }}
                           disabled={role === "viewonly"}
@@ -663,7 +694,7 @@ export default function Products() {
                   ))}
                   {filteredProducts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
                           No products found
                         </Typography>
@@ -697,6 +728,121 @@ export default function Products() {
             onSubmit={handleCreate}
             sx={{ display: "flex", flexDirection: "column", gap: 2.5, mt: 2 }}
           >
+            {/* Product Image Upload */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 1,
+                p: 2,
+                border: '2px dashed #e0e0e0',
+                borderRadius: 2,
+                backgroundColor: '#fafafa',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                '&:hover': { borderColor: '#1976d2', backgroundColor: '#f5f9ff' },
+              }}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                      showSnackbar('Image must be less than 5MB', 'error');
+                      return;
+                    }
+                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                      showSnackbar('Only JPEG, PNG, and WebP images are allowed', 'error');
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setCropImageSrc(reader.result as string);
+                      setCropperOpen(true);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                  // Reset input so same file can be re-selected
+                  e.target.value = '';
+                }}
+              />
+              {imagePreview ? (
+                <Box sx={{ position: 'relative' }}>
+                  <Box
+                    component="img"
+                    src={imagePreview}
+                    alt="Product"
+                    sx={{
+                      width: 120,
+                      height: 120,
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                      border: '1px solid #e0e0e0',
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: -8,
+                      right: -8,
+                      bgcolor: '#1976d2',
+                      borderRadius: '50%',
+                      width: 28,
+                      height: 28,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <PhotoCameraIcon sx={{ color: '#fff', fontSize: 16 }} />
+                  </Box>
+                </Box>
+              ) : (
+                <>
+                  <PhotoCameraIcon sx={{ fontSize: 40, color: '#bdbdbd' }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Click to upload product image
+                  </Typography>
+                  <Typography variant="caption" color="text.disabled">
+                    JPEG, PNG, or WebP • Max 5MB
+                  </Typography>
+                </>
+              )}
+              {imageUploading && <CircularProgress size={24} sx={{ mt: 1 }} />}
+            </Box>
+
+            {/* Image Cropper Dialog */}
+            <ImageCropper
+              open={cropperOpen}
+              imageSrc={cropImageSrc}
+              onClose={() => setCropperOpen(false)}
+              onCropComplete={async (croppedBlob) => {
+                setCropperOpen(false);
+                setImageUploading(true);
+                try {
+                  // Delete old image if replacing
+                  if (formData.image_url) {
+                    await deleteProductImage(formData.image_url);
+                  }
+                  const url = await uploadProductImage(croppedBlob, 'product.jpg');
+                  setFormData((prev) => ({ ...prev, image_url: url }));
+                  setImagePreview(url);
+                  showSnackbar('Image uploaded successfully', 'success');
+                } catch (err: any) {
+                  console.error('Image upload failed:', err);
+                  showSnackbar('Failed to upload image', 'error');
+                } finally {
+                  setImageUploading(false);
+                }
+              }}
+            />
+
             <TextField
               required
               fullWidth

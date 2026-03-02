@@ -14,6 +14,7 @@ export interface Product {
     min_stock_level: number;
     category_id?: number | null;
     category?: Category | null;
+    image_url?: string | null;
 }
 
 export interface ProductForm {
@@ -25,6 +26,7 @@ export interface ProductForm {
     stock_quantity: number;
     min_stock_level: number;
     category_id?: number | null;
+    image_url?: string | null;
 }
 
 
@@ -58,7 +60,7 @@ export const bulkDeleteProducts = async (ids: number[]) => {
 export const importProducts = async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    
+
     const response = await api.post<{ message: string; imported: number }>('/import-products/', formData, {
         headers: {
             'Content-Type': 'multipart/form-data',
