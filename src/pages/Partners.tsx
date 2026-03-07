@@ -51,6 +51,14 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     const [filterEmail, setFilterEmail] = useState('');
     const [filterPhone, setFilterPhone] = useState('');
     const [filterAddress, setFilterAddress] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     const [formData, setFormData] = useState({
         name: '',
@@ -66,7 +74,7 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                 page * rowsPerPage,
                 rowsPerPage,
                 type,
-                searchTerm || undefined,
+                debouncedSearch || undefined,
                 filterName || undefined,
                 filterEmail || undefined,
                 filterPhone || undefined,
@@ -86,7 +94,7 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     useEffect(() => {
         loadPartners();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, page, rowsPerPage]);
+    }, [type, page, rowsPerPage, debouncedSearch, filterName, filterEmail, filterPhone, filterAddress]);
 
     const load = () => {
         loadPartners(false);
@@ -231,18 +239,19 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                             }}
                             filterMode="server"
                             onFilterModelChange={(model: any) => {
-                                if (model.items.length > 0) {
-                                    const item = model.items[0];
+                                // Reset all column filters first
+                                setFilterName('');
+                                setFilterEmail('');
+                                setFilterPhone('');
+                                setFilterAddress('');
+
+                                // Apply all active filters
+                                model.items.forEach((item: any) => {
                                     if (item.field === 'name') setFilterName(item.value || '');
                                     if (item.field === 'email') setFilterEmail(item.value || '');
                                     if (item.field === 'phone') setFilterPhone(item.value || '');
                                     if (item.field === 'address') setFilterAddress(item.value || '');
-                                } else {
-                                    setFilterName('');
-                                    setFilterEmail('');
-                                    setFilterPhone('');
-                                    setFilterAddress('');
-                                }
+                                });
                             }}
                             disableRowSelectionOnClick
                             autoHeight

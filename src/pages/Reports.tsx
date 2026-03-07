@@ -43,6 +43,14 @@ export default function Reports() {
 
     // Selection state for sales report
     const [selectedSales, setSelectedSales] = useState<number[]>([]);
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
 
     // ...existing code...
 
@@ -344,19 +352,19 @@ export default function Reports() {
 
         switch (currentReport) {
             case 'stock':
-                return <StockReportPreview data={data} products={products} searchTerm={searchTerm} />;
+                return <StockReportPreview data={data} products={products} searchTerm={debouncedSearch} />;
             case 'sales':
                 return <SalesReportPreview 
                     data={data}
                     transactions={transactions.filter(t => t.type === 'sale')}
                     partners={partners}
-                    searchTerm={searchTerm}
+                    searchTerm={debouncedSearch}
                     selectedSales={selectedSales}
                     onSaleSelect={handleSaleSelect}
                     onSelectAllSales={handleSelectAllSales}
                 />;
             case 'purchase':
-                return <PurchaseReportPreview data={data} transactions={transactions.filter(t => t.type === 'purchase')} partners={partners} searchTerm={searchTerm} />;
+                return <PurchaseReportPreview data={data} transactions={transactions.filter(t => t.type === 'purchase')} partners={partners} searchTerm={debouncedSearch} />;
             case 'profit':
                 return <ProfitLossPreview data={data} transactions={transactions} />;
             default:
@@ -473,18 +481,18 @@ export default function Reports() {
 
 
                 <DialogContent sx={{ p: 3, bgcolor: '#f5f5f5', pt: 3 }}>
-                    {currentReport && ['stock', 'sales', 'purchase'].includes(currentReport) && (
+                    {previewOpen && (
                         <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             <TextField
-                                fullWidth
+                                size="small"
                                 placeholder="Search..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                sx={{ bgcolor: 'white', flex: 2 }}
+                                sx={{ bgcolor: 'white', minWidth: 200, flex: 1 }}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <SearchIcon />
+                                            <SearchIcon fontSize="small" />
                                         </InputAdornment>
                                     )
                                 }}

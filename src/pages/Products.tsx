@@ -70,6 +70,14 @@ export default function Products() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "">("");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   // Selection State
@@ -175,12 +183,12 @@ export default function Products() {
 
   useEffect(() => {
     loadProducts();
-  }, [page, rowsPerPage]);
+  }, [page, rowsPerPage, debouncedSearch, categoryFilter, filterName, filterSku]);
 
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const res = await getProducts(page * rowsPerPage, rowsPerPage, searchTerm || undefined, filterName || undefined, filterSku || undefined, categoryFilter || undefined);
+      const res = await getProducts(page * rowsPerPage, rowsPerPage, debouncedSearch || undefined, filterName || undefined, filterSku || undefined, categoryFilter || undefined);
       setProducts(res.data);
       setTotalProducts(res.total);
     } catch (error: any) {
@@ -650,14 +658,15 @@ export default function Products() {
                   }}
                   filterMode="server"
                   onFilterModelChange={(model: any) => {
-                      if (model.items.length > 0) {
-                          const item = model.items[0];
+                      // Reset all filters first
+                      setFilterName("");
+                      setFilterSku("");
+                      
+                      // Apply all current filters
+                      model.items.forEach((item: any) => {
                           if (item.field === 'name') setFilterName(item.value || "");
                           if (item.field === 'sku') setFilterSku(item.value || "");
-                      } else {
-                          setFilterName("");
-                          setFilterSku("");
-                      }
+                      });
                   }}
                   onRowClick={() => {}} // Disable default row click if needed
                   // @ts-ignore

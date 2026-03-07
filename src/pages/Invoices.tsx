@@ -103,18 +103,23 @@ export default function Invoices() {
     severity: 'success' | 'error' | 'info' | 'warning';
   }>({ open: false, message: '', severity: 'success' });
 
+  const [loading, setLoading] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+
   useEffect(() => {
     loadInvoices();
-  }, []);
+  }, [inputValue]);
 
   const loadInvoices = async () => {
     try {
-      const data = await getInvoices();
-      // Filter to sales only
-      setInvoices(data.filter((inv: any) => inv.type === 'sale'));
+      setLoading(true);
+      const res = await getInvoices(0, 50, inputValue || undefined);
+      setInvoices(res.data);
     } catch (error) {
       console.error('Failed to load invoices:', error);
       setSnackbar({ open: true, message: 'Failed to load invoices', severity: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -185,9 +190,28 @@ export default function Invoices() {
                 }
                 value={selected}
                 onChange={(_, value) => setSelected(value)}
+                inputValue={inputValue}
+                onInputChange={(_, newInputValue) => {
+                  setInputValue(newInputValue);
+                }}
+                loading={loading}
                 size="small"
+                filterOptions={(x) => x} // Disable built-in filtering, use backend instead
                 renderInput={params => (
-                  <TextField {...params} label="Select Sale Transaction" placeholder="Search by customer name..." />
+                  <TextField 
+                    {...params} 
+                    label="Select Sale Transaction" 
+                    placeholder="Search by customer name or amount..." 
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
                 )}
                 renderOption={(props, option) => (
                   <li {...props} key={option.id}>

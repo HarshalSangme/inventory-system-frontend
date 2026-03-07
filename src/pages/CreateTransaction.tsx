@@ -1,4 +1,3 @@
-// ...existing code...
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import { useEffect, useState } from 'react';
 import { useUser } from '../context/UserContext';
@@ -26,14 +25,10 @@ import {
     Tooltip,
     Autocomplete
 } from '@mui/material';
-import { createTransaction, type TransactionCreate, type TransactionItem } from '../services/transactionService';
+import { createTransaction, type TransactionCreate, type TransactionItem, type Transaction } from '../services/transactionService';
 import { getProducts, type Product } from '../services/productService';
 import { getCategories, type Category } from '../services/categoryService';
 import { getPartners, type Partner } from '../services/partnerService';
-
-
-// Type-only import must be at the top for verbatimModuleSyntax
-import type { Transaction } from '../services/transactionService';
 
 type CreateTransactionProps = {
     type: 'purchase' | 'sale';
@@ -44,20 +39,18 @@ type CreateTransactionProps = {
 };
 
 const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, onSuccess, editData, onEdit }) => {
-        const updateVat = (index: number, value: number) => {
-            if (role === 'viewonly') return;
-            const newItems = [...items];
-            newItems[index].vat_percent = value;
-            setItems(newItems);
-        };
     const { role } = useUser();
     const { showSnackbar } = useSnackbar();
+    
+    // State declarations
     const [partners, setPartners] = useState<Partner[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [categoryFilter, setCategoryFilter] = useState<number | ''>('');
     const [productSearch, setProductSearch] = useState('');
+    const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>(editData ? editData.partner_id : '');
+    const [paymentMethod, setPaymentMethod] = useState<string>(editData?.payment_method || 'Cash');
     const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map((item: TransactionItem) => ({
         product_id: item.product_id,
         quantity: item.quantity,
@@ -65,43 +58,60 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         discount: item.discount || 0,
         vat_percent: item.vat_percent ?? 0
     })) : []);
-    // Remove global vatPercent
     const [submitting, setSubmitting] = useState(false);
-        const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
+    const [loading, setLoading] = useState(false);
 
+    // Debounce product search
     useEffect(() => {
-        if (editData && products.length > 0) {
-            setSelectedPartnerId(editData.partner_id);
-            setItems(editData.items.map((item: TransactionItem) => {
-                // Use the price from the transaction item (editData.items), not the product default
-                return {
-                    product_id: item.product_id,
-                    quantity: item.quantity,
-                    price: item.price, // <-- use transaction price
-                    discount: item.discount || 0
-                };
-            }));
-            setPaymentMethod(editData.payment_method || 'Cash');
-        } else if (!editData) {
-            setSelectedPartnerId('');
-            setItems([]);
-            setPaymentMethod('Cash');
+        const timer = setTimeout(() => {
+            setDebouncedProductSearch(productSearch);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [productSearch]);
+
+    // Load initial data
+    const loadData = async () => {
+        setLoading(true);
+        try {
+            const [pData, prodData, catData] = await Promise.all([
+                getPartners(0, 1000),
+                getProducts(0, 50, debouncedProductSearch || undefined),
+                getCategories()
+            ]);
+            setPartners(pData.data.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
+            setProducts(prodData.data);
+            setCategories(catData.data);
+        } catch (error) {
+            console.error('Failed to load data', error);
+        } finally {
+            setLoading(false);
         }
-    }, [editData, products]);
+    };
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [debouncedProductSearch]);
 
-    const loadData = async () => {
-        const [pData, prodData, catData] = await Promise.all([
-            getPartners(),
-            getProducts(),
-            getCategories()
-        ]);
-        setPartners(pData.data.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
-        setProducts(prodData.data);
-        setCategories(catData.data);
+    // Update edit data if it changes
+    useEffect(() => {
+        if (editData && products.length > 0) {
+            setSelectedPartnerId(editData.partner_id);
+            setItems(editData.items.map((item: TransactionItem) => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                discount: item.discount || 0,
+                vat_percent: item.vat_percent ?? 0
+            })));
+            setPaymentMethod(editData.payment_method || 'Cash');
+        }
+    }, [editData, products]);
+
+    const updateVat = (index: number, value: number) => {
+        if (role === 'viewonly') return;
+        const newItems = [...items];
+        newItems[index].vat_percent = value;
+        setItems(newItems);
     };
 
     const addItem = () => {
@@ -202,9 +212,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         }
     };
 
-    const filteredProducts = products
-        .filter(p => categoryFilter === '' || p.category_id === categoryFilter)
-        .filter(p => productSearch.trim() === '' || p.name.toLowerCase().includes(productSearch.trim().toLowerCase()));
+    // Products are already filtered by backend via loadData triggers
 
     return (
         <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -327,31 +335,44 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                         <Autocomplete
                                             fullWidth
                                             size="small"
-                                            options={filteredProducts.filter(p => {
-                                                if (type !== 'sale') return true;
-                                                const metadataAllocated = items.reduce((sum, i, idx) => {
-                                                    return (idx !== index && i.product_id === p.id) ? sum + i.quantity : sum;
-                                                }, 0);
-                                                const remaining = p.stock_quantity - metadataAllocated;
-                                                return remaining > 0 || p.id === item.product_id;
-                                            })}
-                                            getOptionLabel={option => option.name}
+                                            options={products}
+                                            loading={loading}
+                                            getOptionLabel={(option) => option.name || ""}
                                             value={products.find(p => p.id === item.product_id) || null}
-                                            onChange={(_, newValue) => {
-                                                if (role === 'viewonly' || !newValue) return;
-                                                const prod = newValue;
+                                            onInputChange={(_, newInputValue) => {
+                                                setProductSearch(newInputValue);
+                                            }}
+                                            onChange={(_, selectedProduct) => {
+                                                if (role === 'viewonly' || !selectedProduct) return;
+                                                const prod = selectedProduct;
                                                 const newItems = [...items];
                                                 newItems[index] = {
                                                     ...newItems[index],
                                                     product_id: prod.id,
-                                                    price: type === 'sale' ? (prod.price || 0) : prod.price || 0,
+                                                    price: type === 'sale' ? +(1.4 * (prod.cost_price || 0)).toFixed(2) : prod.price || 0,
                                                     quantity: 1,
-                                                    discount: 0
+                                                    discount: 0,
+                                                    sku: prod.sku || ""
                                                 };
                                                 setItems(newItems);
                                             }}
                                             renderInput={params => (
-                                                <TextField {...params} required label="Select Product" placeholder="Type to search..." sx={{ flex: 2 }} />
+                                                <TextField 
+                                                  {...params} 
+                                                  required 
+                                                  label="Select Product" 
+                                                  placeholder="Type to search..." 
+                                                  sx={{ flex: 2 }}
+                                                  InputProps={{
+                                                      ...params.InputProps,
+                                                      endAdornment: (
+                                                          <>
+                                                              {loading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                              {params.InputProps.endAdornment}
+                                                          </>
+                                                      ),
+                                                  }}
+                                                />
                                             )}
                                             isOptionEqualToValue={(option, value) => option.id === value.id}
                                             disabled={role === 'viewonly'}

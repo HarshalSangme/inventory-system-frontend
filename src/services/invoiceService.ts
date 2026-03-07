@@ -8,9 +8,16 @@ export interface InvoiceEditData {
   sales_person: string;
 }
 
-export const getInvoices = async () => {
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+}
+
+export const getInvoices = async (skip: number = 0, limit: number = 1000, search?: string) => {
   // For now, reuse transactions as invoices
-  const response = await api.get<Transaction[]>('/transactions/');
+  const response = await api.get<PaginatedResponse<Transaction>>('/transactions/', {
+    params: { skip, limit, search, type: 'sale' }
+  });
   return response.data;
 };
 

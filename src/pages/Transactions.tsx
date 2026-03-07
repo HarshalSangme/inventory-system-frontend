@@ -49,8 +49,16 @@ export default function Transactions({ type }: TransactionsProps) {
     const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null);
-    const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+    const [loading, setLoading] = useState(true);
     const [dateFrom, setDateFrom] = useState<string>('');
     const [dateTo, setDateTo] = useState<string>('');
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -88,7 +96,7 @@ export default function Transactions({ type }: TransactionsProps) {
             setLoading(true);
             try {
                 const [txData, partnerData] = await Promise.all([
-                    getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined, searchTerm || undefined),
+                    getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined, debouncedSearch || undefined),
                     getPartners(0, 1000)
                 ]);
                 setTransactions(txData.data);
@@ -102,7 +110,7 @@ export default function Transactions({ type }: TransactionsProps) {
         };
         loadTransactionsAndPartners();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, dateFrom, dateTo, page, rowsPerPage, searchTerm]);
+    }, [type, dateFrom, dateTo, page, rowsPerPage, debouncedSearch]);
 
     const refreshTransactions = async () => {
         try {
@@ -123,7 +131,7 @@ export default function Transactions({ type }: TransactionsProps) {
     // Reset page when filters change
     useEffect(() => {
         setPage(0);
-    }, [searchTerm, dateFrom, dateTo]);
+    }, [debouncedSearch, dateFrom, dateTo]);
 
     // Total amount for current page
     const totalAmount = transactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
