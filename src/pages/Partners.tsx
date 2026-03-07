@@ -28,11 +28,12 @@ import {
     Typography,
     CircularProgress
 } from '@mui/material';
+import TablePagination from '@mui/material/TablePagination';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 type PartnersProps = {
-  type: 'customer' | 'vendor';
+    type: 'customer' | 'vendor';
 };
 
 const Partners: React.FC<PartnersProps> = ({ type }) => {
@@ -46,6 +47,17 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
+
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
+
+    // Column Filter State
+    const [filterName, setFilterName] = useState('');
+    const [filterEmail, setFilterEmail] = useState('');
+    const [filterPhone, setFilterPhone] = useState('');
+    const [filterAddress, setFilterAddress] = useState('');
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -148,10 +160,23 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     };
 
     const title = type === 'customer' ? 'Customers' : 'Vendors';
-    const filteredPartners = partners.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredPartners = partners.filter(p => {
+        const matchesSearch =
+            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.email?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesName = filterName === '' || p.name.toLowerCase().includes(filterName.toLowerCase());
+        const matchesEmail = filterEmail === '' || (p.email || '').toLowerCase().includes(filterEmail.toLowerCase());
+        const matchesPhone = filterPhone === '' || (p.phone || '').toLowerCase().includes(filterPhone.toLowerCase());
+        const matchesAddress = filterAddress === '' || (p.address || '').toLowerCase().includes(filterAddress.toLowerCase());
+        return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesAddress;
+    });
+
+    // Reset page when filters change
+    useEffect(() => {
+        setPage(0);
+    }, [searchTerm, filterName, filterEmail, filterPhone, filterAddress]);
+
+    const paginatedPartners = filteredPartners.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -198,9 +223,25 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                                     <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Address</TableCell>
                                     <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                 </TableRow>
+                                {/* Column Filter Row */}
+                                <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
+                                    <TableCell>
+                                        <TextField size="small" placeholder="Filter..." value={filterName} onChange={e => setFilterName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <TextField size="small" placeholder="Filter..." value={filterEmail} onChange={e => setFilterEmail(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <TextField size="small" placeholder="Filter..." value={filterPhone} onChange={e => setFilterPhone(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
+                                    </TableCell>
+                                    <TableCell>
+                                        <TextField size="small" placeholder="Filter..." value={filterAddress} onChange={e => setFilterAddress(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
+                                    </TableCell>
+                                    <TableCell />
+                                </TableRow>
                             </TableHead>
                             <TableBody>
-                                {filteredPartners.map(partner => (
+                                {paginatedPartners.map(partner => (
                                     <TableRow key={partner.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
                                         <TableCell sx={{ fontWeight: 500 }}>{partner.name}</TableCell>
                                         <TableCell><Typography variant="body2">{partner.email || '-'}</Typography></TableCell>
@@ -222,6 +263,15 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                             </TableBody>
                         </Table>
                     </TableContainer>
+                    <TablePagination
+                        component="div"
+                        count={filteredPartners.length}
+                        page={page}
+                        onPageChange={(_e, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                        rowsPerPageOptions={[10, 25, 50, 100]}
+                    />
                 </CardContent>
             </Card>
 
@@ -238,9 +288,9 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                 </DialogContent>
                 <DialogActions sx={{ p: 2 }}>
                     <Button onClick={() => setIsModalOpen(false)} disabled={saving}>Cancel</Button>
-                    <Button 
-                        type="submit" 
-                        form="partner-form" 
+                    <Button
+                        type="submit"
+                        form="partner-form"
                         variant="contained"
                         disabled={saving || role === 'viewonly'}
                         startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
@@ -269,5 +319,5 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
 };
 
 export default Partners;
-            {/* Snackbar for notifications */}
+{/* Snackbar for notifications */ }
 
