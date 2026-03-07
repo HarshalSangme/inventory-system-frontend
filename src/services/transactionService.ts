@@ -55,7 +55,7 @@ export interface PaginatedResponse<T> {
 }
 
 // Implement getTransactions if needed for the list view
-export const getTransactions = async (skip: number = 0, limit: number = 100, type?: string, fromDate?: string, toDate?: string) => {
+export const getTransactions = async (skip: number = 0, limit: number = 100, type?: string, fromDate?: string, toDate?: string, search?: string) => {
     // Send Date filters and pagination over query params
     let url = '/transactions/';
     const params: string[] = [];
@@ -64,6 +64,7 @@ export const getTransactions = async (skip: number = 0, limit: number = 100, typ
     if (type) params.push(`type=${encodeURIComponent(type)}`);
     if (fromDate) params.push(`from_date=${encodeURIComponent(fromDate)}`);
     if (toDate) params.push(`to_date=${encodeURIComponent(toDate)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
     if (params.length) url += '?' + params.join('&');
     const response = await api.get<PaginatedResponse<Transaction>>(url);
     return response.data;

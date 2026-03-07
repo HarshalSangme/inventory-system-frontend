@@ -16,19 +16,19 @@ import {
     DialogContent,
     IconButton,
     InputAdornment,
-    Paper,
+    TextField,
+    Typography,
+    Grid,
+    CircularProgress,
     Table,
     TableBody,
     TableCell,
     TableContainer,
     TableHead,
     TableRow,
-    TextField,
-    Typography,
-    Grid,
-    CircularProgress
+    Paper
 } from '@mui/material';
-import TablePagination from '@mui/material/TablePagination';
+import { DataGrid } from '@mui/x-data-grid';
 
 import { getTransactions, type Transaction, getInvoicePdf } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
@@ -60,12 +60,7 @@ export default function Transactions({ type }: TransactionsProps) {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(25);
 
-    // Column Filter State
-    const [filterSku, setFilterSku] = useState('');
-    const [filterItemName, setFilterItemName] = useState('');
-    const [filterPartner, setFilterPartner] = useState('');
-    const [filterPayment, setFilterPayment] = useState('');
-    const [filterAmount, setFilterAmount] = useState('');
+    // Removed individual column filter states
 
     const handleView = (transaction: Transaction) => {
         setSelectedTransaction(transaction);
@@ -93,7 +88,7 @@ export default function Transactions({ type }: TransactionsProps) {
             setLoading(true);
             try {
                 const [txData, partnerData] = await Promise.all([
-                    getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined),
+                    getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined, searchTerm || undefined),
                     getPartners(0, 1000)
                 ]);
                 setTransactions(txData.data);
@@ -112,7 +107,7 @@ export default function Transactions({ type }: TransactionsProps) {
     const refreshTransactions = async () => {
         try {
             const [txData, partnerData] = await Promise.all([
-                getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined),
+                getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined, searchTerm || undefined),
                 getPartners(0, 1000)
             ]);
             setTransactions(txData.data);
@@ -125,36 +120,13 @@ export default function Transactions({ type }: TransactionsProps) {
 
     const title = type === 'purchase' ? 'Purchases' : 'Sales';
 
-    let filteredTransactions = transactions.filter(t => {
-        const matchesSearch = t.id.toString().includes(searchTerm) ||
-            new Date(t.date).toLocaleDateString().includes(searchTerm);
-        const partnerName = partners.find(p => p.id === t.partner_id)?.name || '';
-        const matchesPartner = filterPartner === '' || partnerName.toLowerCase().includes(filterPartner.toLowerCase());
-        const matchesPayment = filterPayment === '' || (t.payment_method || '').toLowerCase().includes(filterPayment.toLowerCase());
-        const matchesAmount = filterAmount === '' || String(t.total_amount).includes(filterAmount);
-        let matchesSku = true;
-        let matchesItemName = true;
-        if (type === 'sale' && t.items && t.items.length > 0) {
-            const sku = t.items[0]?.product?.sku || '';
-            const itemName = t.items[0]?.product?.name || '';
-            matchesSku = filterSku === '' || sku.toLowerCase().includes(filterSku.toLowerCase());
-            matchesItemName = filterItemName === '' || itemName.toLowerCase().includes(filterItemName.toLowerCase());
-        }
-        return matchesSearch && matchesPartner && matchesPayment && matchesAmount && matchesSku && matchesItemName;
-    });
-    // Date filtering now handled server-side
-    // Sort by date descending
-    filteredTransactions = filteredTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
     // Reset page when filters change
     useEffect(() => {
         setPage(0);
-    }, [searchTerm, dateFrom, dateTo, filterSku, filterItemName, filterPartner, filterPayment, filterAmount]);
+    }, [searchTerm, dateFrom, dateTo]);
 
-    const paginatedTransactions = filteredTransactions;
-
-    // Total amount for filtered
-    const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
+    // Total amount for current page
+    const totalAmount = transactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
 
     // Stub API calls for update/delete (replace with real API calls)
     const updateTransaction = async (id: number, data: any) => {
@@ -238,85 +210,54 @@ export default function Transactions({ type }: TransactionsProps) {
                         </Box>
                     ) : (
                         <>
-                            <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #f0f0f0' }}>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                            <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Entry No.</TableCell>
-                                            <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Date</TableCell>
-                                            {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>SKU Code</TableCell>}
-                                            {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Item Name</TableCell>}
-                                            <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>{type === 'purchase' ? 'Vendor Name' : 'Customer Name'}</TableCell>
-                                            {type === 'sale' && <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Payment Mode</TableCell>}
-                                            <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
-                                            <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
-                                        </TableRow>
-                                        {/* Column Filter Row */}
-                                        <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
-                                            <TableCell />
-                                            <TableCell />
-                                            {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterSku} onChange={e => setFilterSku(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
-                                            {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterItemName} onChange={e => setFilterItemName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
-                                            <TableCell><TextField size="small" placeholder="Filter..." value={filterPartner} onChange={e => setFilterPartner(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>
-                                            {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterPayment} onChange={e => setFilterPayment(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
-                                            <TableCell align="right"><TextField size="small" placeholder="Filter..." value={filterAmount} onChange={e => setFilterAmount(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} /></TableCell>
-                                            <TableCell />
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {paginatedTransactions.map((transaction, idx) => {
-                                            const partnerName = partners.find(p => p.id === transaction.partner_id)?.name || transaction.partner_id;
-                                            // For sales, show first item's SKU and payment mode
-                                            let sku = '-';
-                                            let itemName = '-';
-                                            if (type === 'sale' && transaction.items && transaction.items.length > 0) {
-                                                sku = transaction.items[0]?.product?.sku || '-';
-                                                itemName = transaction.items[0]?.product?.name || '-';
-                                            }
-                                            return (
-                                                <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                                                    <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
-                                                    <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
-                                                    {type === 'sale' && <TableCell>{sku}</TableCell>}
-                                                    {type === 'sale' && <TableCell sx={{ minWidth: 260, maxWidth: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</TableCell>}
-                                                    <TableCell sx={{ minWidth: 160 }}>{partnerName}</TableCell>
-                                                    {type === 'sale' && <TableCell>{transaction.payment_method || '-'}</TableCell>}
-                                                    <TableCell align="right" sx={{ fontWeight: 400, color: type === 'sale' ? '#2e7d32' : '#f44336' }}>{transaction.total_amount.toFixed(2)}</TableCell>
-                                                    <TableCell align="center">
-                                                        <IconButton size="small" color="primary" onClick={() => handleView(transaction)}><VisibilityIcon fontSize="small" /></IconButton>
-                                                        {role !== 'viewonly' && (
-                                                            <>
-                                                                <IconButton size="small" color="secondary" onClick={() => { setIsEditMode(true); setEditTransaction(transaction); setIsModalOpen(true); }}>
-                                                                    <EditIcon fontSize="small" />
-                                                                </IconButton>
-                                                                <IconButton size="small" color="error" onClick={() => { setDeleteTarget(transaction); setDeleteDialogOpen(true); }}>
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </>
-                                                        )}
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                        {filteredTransactions.length === 0 && (
-                                            <TableRow>
-                                                <TableCell colSpan={type === 'sale' ? 8 : 5} align="center" sx={{ py: 4 }}>
-                                                    <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
-                                                </TableCell>
-                                            </TableRow>
+                            <Box sx={{ width: '100%', mb: 2 }}>
+                                <DataGrid
+                                    rows={transactions}
+                                    columns={[
+                                        { field: 'id', headerName: 'Entry No.', width: 120, valueGetter: (_value: any, row: any) => type === 'purchase' ? `PUR-${row.id}` : `SAL-${row.id}` },
+                                        { field: 'date', headerName: 'Date', width: 110, valueGetter: (value: any) => new Date(value).toLocaleDateString() },
+                                        ...(type === 'sale' ? [
+                                            { field: 'sku', headerName: 'SKU Code', width: 120, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.sku || '-' },
+                                            { field: 'itemName', headerName: 'Item Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.name || '-' },
+                                        ] : []),
+                                        { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => partners.find((p: any) => p.id === row.partner_id)?.name || row.partner_id },
+                                        ...(type === 'sale' ? [
+                                            { field: 'payment_method', headerName: 'Payment Mode', width: 130, valueGetter: (_value: any, row: any) => row.payment_method || '-' },
+                                        ] : []),
+                                        { field: 'total_amount', headerName: 'Amount', width: 110, type: 'number', valueGetter: (value: any) => value !== undefined && value !== null ? parseFloat(value).toFixed(2) : '0.00' },
+                                        { field: 'actions', headerName: 'Actions', width: 140, sortable: false, filterable: false, renderCell: (params: any) => (
+                                            <>
+                                                <IconButton size="small" color="primary" onClick={() => handleView(params.row)} title="View Details">
+                                                    <VisibilityIcon fontSize="small" />
+                                                </IconButton>
+                                                {role !== 'viewonly' && (
+                                                    <>
+                                                        <IconButton size="small" color="secondary" onClick={() => { setIsEditMode(true); setEditTransaction(params.row); setIsModalOpen(true); }} title="Edit">
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                        <IconButton size="small" color="error" onClick={() => { setDeleteTarget(params.row); setDeleteDialogOpen(true); }} title="Delete">
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </>
+                                                )}
+                                            </>
                                         )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                            <TablePagination
-                                component="div"
-                                count={totalTransactions}
-                                page={page}
-                                onPageChange={(_e, newPage) => setPage(newPage)}
-                                rowsPerPage={rowsPerPage}
-                                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                                rowsPerPageOptions={[10, 25, 50, 100]}
-                            />
+                                    ]}
+                                    rowCount={totalTransactions}
+                                    loading={loading}
+                                    pageSizeOptions={[10, 25, 50, 100]}
+                                    paginationModel={{ page, pageSize: rowsPerPage }}
+                                    paginationMode="server"
+                                    onPaginationModelChange={(model: any) => {
+                                        setPage(model.page);
+                                        setRowsPerPage(model.pageSize);
+                                    }}
+                                    disableColumnFilter
+                                    disableRowSelectionOnClick
+                                    autoHeight
+                                    sx={{ border: 'none' }}
+                                />
+                            </Box>
                         </>
                     )}
                 </CardContent>

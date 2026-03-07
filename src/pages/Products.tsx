@@ -52,20 +52,14 @@ import DialogActions from "@mui/material/DialogActions";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
-import Checkbox from "@mui/material/Checkbox";
+// Keep Chip, MenuItem, etc.
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
-import TablePagination from "@mui/material/TablePagination";
+import { DataGrid } from '@mui/x-data-grid';
 
 export default function Products() {
   const { role } = useUser();
@@ -108,9 +102,6 @@ export default function Products() {
   // Column Filter State
   const [filterName, setFilterName] = useState("");
   const [filterSku, setFilterSku] = useState("");
-  const [filterStock, setFilterStock] = useState("");
-  const [filterCostPrice, setFilterCostPrice] = useState("");
-  const [filterRetailPrice, setFilterRetailPrice] = useState("");
 
   // Category State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -190,7 +181,7 @@ export default function Products() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const res = await getProducts(page * rowsPerPage, rowsPerPage);
+      const res = await getProducts(page * rowsPerPage, rowsPerPage, searchTerm || undefined, filterName || undefined, filterSku || undefined, categoryFilter || undefined);
       setProducts(res.data);
       setTotalProducts(res.total);
     } catch (error: any) {
@@ -309,12 +300,12 @@ export default function Products() {
       // Fetch latest products to get SKUs
       const latestProducts = await getProducts();
       const usedNumbers = new Set(
-        latestProducts
-          .map((p) => {
+        latestProducts.data
+          .map((p: Product) => {
             const match = p.sku.match(/SKU-(\d+)/i);
             return match ? parseInt(match[1]) : null;
           })
-          .filter((n): n is number => n !== null && !isNaN(n)),
+          .filter((n: number | null): n is number => n !== null && !isNaN(n)),
       );
       let nextNumber = 1;
       while (usedNumbers.has(nextNumber)) {
@@ -343,22 +334,6 @@ export default function Products() {
   };
 
   // Selection Functions
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedIds(filteredProducts.map((p) => p.id));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleSelectOne = (id: number, checked: boolean) => {
-    if (checked) {
-      setSelectedIds([...selectedIds, id]);
-    } else {
-      setSelectedIds(selectedIds.filter((sid) => sid !== id));
-    }
-  };
-
   const handleBulkDeleteClick = () => {
     if (role === "viewonly") return;
     if (selectedIds.length === 0) return;
@@ -489,31 +464,10 @@ export default function Products() {
     setUploadProgress(0);
   };
 
-  const filteredProducts = products.filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "" || p.category_id === categoryFilter;
-    const matchesNameCol =
-      filterName === "" || p.name.toLowerCase().includes(filterName.toLowerCase());
-    const matchesSkuCol =
-      filterSku === "" || p.sku.toLowerCase().includes(filterSku.toLowerCase());
-    const matchesStockCol =
-      filterStock === "" || String(p.stock_quantity).includes(filterStock);
-    const matchesCostCol =
-      filterCostPrice === "" || String(p.cost_price).includes(filterCostPrice);
-    const matchesRetailCol =
-      filterRetailPrice === "" || String(p.price).includes(filterRetailPrice);
-    return matchesSearch && matchesCategory && matchesNameCol && matchesSkuCol && matchesStockCol && matchesCostCol && matchesRetailCol;
-  });
-
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [searchTerm, categoryFilter, filterName, filterSku, filterStock, filterCostPrice, filterRetailPrice]);
-
-  const paginatedProducts = filteredProducts;
+  }, [searchTerm, categoryFilter, filterName, filterSku]);
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -625,154 +579,87 @@ export default function Products() {
             </Box>
           ) : (
             <>
-              <TableContainer
-                component={Paper}
-                sx={{ boxShadow: "none", border: "1px solid #f0f0f0" }}
-              >
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ backgroundColor: "#f9f9f9" }}>
-                      <TableCell padding="checkbox">
-                        <Checkbox
-                          checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
-                          indeterminate={selectedIds.length > 0 && selectedIds.length < filteredProducts.length}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectAll(e.target.checked)}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SR. NO.</TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", width: 50 }}>Image</TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", minWidth: 240 }}>Product Name</TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SKU</TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Category</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Cost Price</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Retail Price</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Stock</TableCell>
-                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Status</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Details</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Actions</TableCell>
-                    </TableRow>
-                    {/* Column Filter Row */}
-                    <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
-                      <TableCell padding="checkbox" />
-                      <TableCell />
-                      <TableCell />
-                      <TableCell>
-                        <TextField size="small" placeholder="Filter..." value={filterName} onChange={e => setFilterName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                      </TableCell>
-                      <TableCell>
-                        <TextField size="small" placeholder="Filter..." value={filterSku} onChange={e => setFilterSku(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                      </TableCell>
-                      <TableCell />
-                      <TableCell align="right">
-                        <TextField size="small" placeholder="Filter..." value={filterCostPrice} onChange={e => setFilterCostPrice(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField size="small" placeholder="Filter..." value={filterRetailPrice} onChange={e => setFilterRetailPrice(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <TextField size="small" placeholder="Filter..." value={filterStock} onChange={e => setFilterStock(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
-                      </TableCell>
-                      <TableCell />
-                      <TableCell />
-                      <TableCell />
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {paginatedProducts.map((product, idx) => (
-                      <TableRow key={product.id} hover sx={{ "&:hover": { backgroundColor: "#f9f9f9" } }}>
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={selectedIds.includes(product.id)}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectOne(product.id, e.target.checked)}
-                          />
-                        </TableCell>
-                        <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
-                        <TableCell sx={{ width: 50, p: 0.5 }}>
-                          <Avatar
-                            src={product.image_url || undefined}
-                            variant="rounded"
-                            sx={{ width: 40, height: 40, bgcolor: '#f0f0f0' }}
-                          >
-                            <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
-                          </Avatar>
-                        </TableCell>
-                        <TableCell sx={{ fontWeight: 500, minWidth: 240 }}>{product.name}</TableCell>
-                        <TableCell>
-                          <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{product.sku}</Typography>
-                        </TableCell>
-                        <TableCell>{product.category?.name || (<span style={{ color: "#aaa" }}>Uncategorized</span>)}</TableCell>
-                        <TableCell align="right" sx={{ color: "#1976d2", fontWeight: 400 }}>{product.cost_price}</TableCell>
-                        <TableCell align="right" sx={{ color: "#2e7d32", fontWeight: 400 }}>{product.price}</TableCell>
-                        <TableCell align="right">{product.stock_quantity}</TableCell>
-                        <TableCell>
-                          <Chip
-                            label={product.stock_quantity < product.min_stock_level ? "Low Stock" : "In Stock"}
-                            color={product.stock_quantity < product.min_stock_level ? "error" : "success"}
-                            size="small"
-                            variant="outlined"
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton size="small" onClick={() => {/* TODO: implement details view */ }}>
-                            <DetailsIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              if (role === "viewonly") return;
-                              setEditingId(product.id);
-                              setFormData({
-                                name: product.name,
-                                sku: product.sku,
-                                price: product.price,
-                                cost_price: product.cost_price,
-                                stock_quantity: product.stock_quantity,
-                                min_stock_level: product.min_stock_level,
-                                description: product.description || "",
-                                category_id: product.category_id || null,
-                                image_url: product.image_url || null,
-                              });
-                              setImagePreview(product.image_url || null);
-                              setIsModalOpen(true);
-                            }}
-                            disabled={role === "viewonly"}
-                          >
+              <Box sx={{ width: '100%', mb: 2 }}>
+                <DataGrid
+                  rows={products}
+                  columns={[
+                    { field: 'id', headerName: 'ID', width: 70 },
+                    { field: 'image_url', headerName: 'Image', width: 70, sortable: false, filterable: false, renderCell: (params: any) => (
+                        <Avatar src={params.value || undefined} variant="rounded" sx={{ width: 40, height: 40, bgcolor: '#f0f0f0' }}>
+                          <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
+                        </Avatar>
+                    )},
+                    { field: 'name', headerName: 'Product Name', flex: 1, minWidth: 200 },
+                    { field: 'sku', headerName: 'SKU', width: 150 },
+                    { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (value: any, row: any) => {
+                        const cat = categories.find((c: any) => c.id === row.category_id);
+                        return cat ? cat.name : "Uncategorized";
+                    }},
+                    { field: 'cost_price', headerName: 'Cost Price', width: 110, type: 'number' },
+                    { field: 'price', headerName: 'Retail Price', width: 110, type: 'number' },
+                    { field: 'stock_quantity', headerName: 'Stock', width: 100, type: 'number' },
+                    { field: 'status', headerName: 'Status', width: 120, filterable: false, renderCell: (params: any) => {
+                        const low = params.row.stock_quantity < params.row.min_stock_level;
+                        return <Chip label={low ? "Low Stock" : "In Stock"} color={low ? "error" : "success"} size="small" variant="outlined" />;
+                    }},
+                    { field: 'actions', headerName: 'Actions', width: 120, sortable: false, filterable: false, renderCell: (params: any) => (
+                        <>
+                          <IconButton size="small" onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (role === "viewonly") return;
+                            setEditingId(params.row.id);
+                            setFormData({
+                              name: params.row.name,
+                              sku: params.row.sku,
+                              price: params.row.price,
+                              cost_price: params.row.cost_price,
+                              stock_quantity: params.row.stock_quantity,
+                              min_stock_level: params.row.min_stock_level,
+                              description: params.row.description || "",
+                              category_id: params.row.category_id || null,
+                              image_url: params.row.image_url || null,
+                              _manualPrice: false
+                            });
+                            setImagePreview(params.row.image_url || null);
+                            setIsModalOpen(true);
+                          }} disabled={role === "viewonly"}>
                             <EditIcon fontSize="small" />
                           </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => setDeleteConfirm(product.id)}
-                            disabled={role === "viewonly"}
-                          >
+                          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(params.row.id); }} disabled={role === "viewonly"}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    {filteredProducts.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
-                          <Typography color="text.secondary">
-                            No products found
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
+                        </>
                     )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              <TablePagination
-                component="div"
-                count={totalProducts}
-                page={page}
-                onPageChange={(_e, newPage) => setPage(newPage)}
-                rowsPerPage={rowsPerPage}
-                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                rowsPerPageOptions={[10, 25, 50, 100]}
-              />
+                  ]}
+                  rowCount={totalProducts}
+                  loading={loading}
+                  pageSizeOptions={[10, 25, 50, 100]}
+                  paginationModel={{ page, pageSize: rowsPerPage }}
+                  paginationMode="server"
+                  onPaginationModelChange={(model: any) => {
+                    setPage(model.page);
+                    setRowsPerPage(model.pageSize);
+                  }}
+                  filterMode="server"
+                  onFilterModelChange={(model: any) => {
+                      if (model.items.length > 0) {
+                          const item = model.items[0];
+                          if (item.field === 'name') setFilterName(item.value || "");
+                          if (item.field === 'sku') setFilterSku(item.value || "");
+                      } else {
+                          setFilterName("");
+                          setFilterSku("");
+                      }
+                  }}
+                  checkboxSelection
+                  onRowSelectionModelChange={(newRowSelectionModel: any) => setSelectedIds(newRowSelectionModel as number[])}
+                  // @ts-ignore
+                  rowSelectionModel={selectedIds}
+                  disableRowSelectionOnClick
+                  autoHeight
+                  sx={{ border: 'none' }}
+                />
+              </Box>
             </>
           )}
         </CardContent>

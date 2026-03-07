@@ -14,8 +14,8 @@ export interface PaginatedResponse<T> {
     total: number;
 }
 
-export const getPartners = async (skip: number = 0, limit: number = 100, type?: string) => {
-    const response = await api.get<PaginatedResponse<Partner>>('/partners/', { params: { skip, limit, type } });
+export const getPartners = async (skip: number = 0, limit: number = 100, type?: string, search?: string, name?: string, email?: string, phone?: string, address?: string) => {
+    const response = await api.get<PaginatedResponse<Partner>>('/partners/', { params: { skip, limit, type, search, name, email, phone, address } });
     return response.data;
 };
 

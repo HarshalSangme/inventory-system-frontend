@@ -35,9 +35,9 @@ export interface PaginatedResponse<T> {
     total: number;
 }
 
-export const getProducts = async (skip: number = 0, limit: number = 100) => {
+export const getProducts = async (skip: number = 0, limit: number = 100, search?: string, name?: string, sku?: string, category_id?: number) => {
     const response = await api.get<PaginatedResponse<Product>>('/products/', {
-        params: { skip, limit }
+        params: { skip, limit, search, name, sku, category_id }
     });
     return response.data;
 };

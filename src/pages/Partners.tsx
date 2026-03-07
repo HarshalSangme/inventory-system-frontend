@@ -17,18 +17,11 @@ import {
     Grid,
     IconButton,
     InputAdornment,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
     TextField,
     Typography,
     CircularProgress
 } from '@mui/material';
-import TablePagination from '@mui/material/TablePagination';
+import { DataGrid } from '@mui/x-data-grid';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -69,7 +62,16 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     const loadPartners = async (showLoader = true) => {
         if (showLoader) setLoading(true);
         try {
-            const res = await getPartners(page * rowsPerPage, rowsPerPage, type);
+            const res = await getPartners(
+                page * rowsPerPage,
+                rowsPerPage,
+                type,
+                searchTerm || undefined,
+                filterName || undefined,
+                filterEmail || undefined,
+                filterPhone || undefined,
+                filterAddress || undefined
+            );
             setPartners(res.data);
             setTotalPartners(res.total);
         } catch (error: any) {
@@ -158,23 +160,11 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     };
 
     const title = type === 'customer' ? 'Customers' : 'Vendors';
-    const filteredPartners = partners.filter(p => {
-        const matchesSearch =
-            p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.email?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesName = filterName === '' || p.name.toLowerCase().includes(filterName.toLowerCase());
-        const matchesEmail = filterEmail === '' || (p.email || '').toLowerCase().includes(filterEmail.toLowerCase());
-        const matchesPhone = filterPhone === '' || (p.phone || '').toLowerCase().includes(filterPhone.toLowerCase());
-        const matchesAddress = filterAddress === '' || (p.address || '').toLowerCase().includes(filterAddress.toLowerCase());
-        return matchesSearch && matchesName && matchesEmail && matchesPhone && matchesAddress;
-    });
 
     // Reset page when filters change
     useEffect(() => {
         setPage(0);
     }, [searchTerm, filterName, filterEmail, filterPhone, filterAddress]);
-
-    const paginatedPartners = filteredPartners;
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -211,65 +201,54 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
             {/* Partners Table */}
             <Card elevation={2}>
                 <CardContent>
-                    <TableContainer component={Paper} sx={{ boxShadow: 'none', border: '1px solid #f0f0f0' }}>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow sx={{ backgroundColor: '#f9f9f9' }}>
-                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Name</TableCell>
-                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Email</TableCell>
-                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Phone</TableCell>
-                                    <TableCell sx={{ fontWeight: 400, color: '#1a1a1a' }}>Address</TableCell>
-                                    <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
-                                </TableRow>
-                                {/* Column Filter Row */}
-                                <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
-                                    <TableCell>
-                                        <TextField size="small" placeholder="Filter..." value={filterName} onChange={e => setFilterName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField size="small" placeholder="Filter..." value={filterEmail} onChange={e => setFilterEmail(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField size="small" placeholder="Filter..." value={filterPhone} onChange={e => setFilterPhone(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                                    </TableCell>
-                                    <TableCell>
-                                        <TextField size="small" placeholder="Filter..." value={filterAddress} onChange={e => setFilterAddress(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
-                                    </TableCell>
-                                    <TableCell />
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {paginatedPartners.map(partner => (
-                                    <TableRow key={partner.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                                        <TableCell sx={{ fontWeight: 500 }}>{partner.name}</TableCell>
-                                        <TableCell><Typography variant="body2">{partner.email || '-'}</Typography></TableCell>
-                                        <TableCell>{partner.phone || '-'}</TableCell>
-                                        <TableCell>{partner.address || '-'}</TableCell>
-                                        <TableCell align="center">
-                                            <IconButton size="small" color="primary" onClick={() => handleEdit(partner)} disabled={role === 'viewonly'}><EditIcon fontSize="small" /></IconButton>
-                                            <IconButton size="small" color="error" onClick={() => setDeleteConfirm(partner.id)} disabled={role === 'viewonly'}><DeleteIcon fontSize="small" /></IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                                {filteredPartners.length === 0 && !loading && (
-                                    <TableRow>
-                                        <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">No {title.toLowerCase()} found</Typography>
-                                        </TableCell>
-                                    </TableRow>
+                    <Box sx={{ width: '100%', mb: 2 }}>
+                        <DataGrid
+                            rows={partners}
+                            columns={[
+                                { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
+                                { field: 'email', headerName: 'Email', flex: 1, minWidth: 150, valueGetter: (value: any) => value || '-' },
+                                { field: 'phone', headerName: 'Phone', width: 130, valueGetter: (value: any) => value || '-' },
+                                { field: 'address', headerName: 'Address', flex: 1, minWidth: 200, valueGetter: (value: any) => value || '-' },
+                                { field: 'actions', headerName: 'Actions', width: 100, sortable: false, filterable: false, renderCell: (params: any) => (
+                                    <>
+                                        <IconButton size="small" color="primary" onClick={() => handleEdit(params.row)} disabled={role === 'viewonly'}>
+                                            <EditIcon fontSize="small" />
+                                        </IconButton>
+                                        <IconButton size="small" color="error" onClick={() => setDeleteConfirm(params.row.id)} disabled={role === 'viewonly'}>
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </>
                                 )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
-                    <TablePagination
-                        component="div"
-                        count={totalPartners}
-                        page={page}
-                        onPageChange={(_e, newPage) => setPage(newPage)}
-                        rowsPerPage={rowsPerPage}
-                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                        rowsPerPageOptions={[10, 25, 50, 100]}
-                    />
+                            ]}
+                            rowCount={totalPartners}
+                            loading={loading}
+                            pageSizeOptions={[10, 25, 50, 100]}
+                            paginationModel={{ page, pageSize: rowsPerPage }}
+                            paginationMode="server"
+                            onPaginationModelChange={(model: any) => {
+                                setPage(model.page);
+                                setRowsPerPage(model.pageSize);
+                            }}
+                            filterMode="server"
+                            onFilterModelChange={(model: any) => {
+                                if (model.items.length > 0) {
+                                    const item = model.items[0];
+                                    if (item.field === 'name') setFilterName(item.value || '');
+                                    if (item.field === 'email') setFilterEmail(item.value || '');
+                                    if (item.field === 'phone') setFilterPhone(item.value || '');
+                                    if (item.field === 'address') setFilterAddress(item.value || '');
+                                } else {
+                                    setFilterName('');
+                                    setFilterEmail('');
+                                    setFilterPhone('');
+                                    setFilterAddress('');
+                                }
+                            }}
+                            disableRowSelectionOnClick
+                            autoHeight
+                            sx={{ border: 'none' }}
+                        />
+                    </Box>
                 </CardContent>
             </Card>
 
