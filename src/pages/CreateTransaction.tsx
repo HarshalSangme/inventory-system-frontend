@@ -101,7 +101,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         ]);
         setPartners(pData.data.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
         setProducts(prodData.data);
-        setCategories(catData);
+        setCategories(catData.data);
     };
 
     const addItem = () => {
