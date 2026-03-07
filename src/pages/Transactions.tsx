@@ -219,7 +219,10 @@ export default function Transactions({ type }: TransactionsProps) {
                                             { field: 'sku', headerName: 'SKU Code', width: 120, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.sku || '-' },
                                             { field: 'itemName', headerName: 'Item Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.name || '-' },
                                         ] : []),
-                                        { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => partners.find((p: any) => p.id === row.partner_id)?.name || row.partner_id },
+                                        { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => {
+                                            if (!row) return "-";
+                                            return partners.find((p: any) => p.id === row.partner_id)?.name || row.partner_id || "-";
+                                        }},
                                         ...(type === 'sale' ? [
                                             { field: 'payment_method', headerName: 'Payment Mode', width: 130, valueGetter: (_value: any, row: any) => row.payment_method || '-' },
                                         ] : []),

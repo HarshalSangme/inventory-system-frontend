@@ -195,8 +195,8 @@ export default function Products() {
   const loadCategories = async () => {
     setCategoryLoading(true);
     try {
-      const data = await getCategories();
-      setCategories(data);
+      const res = await getCategories();
+      setCategories(res.data);
     } catch (error: any) {
       const msg = error?.response?.data?.detail || "Failed to load categories";
       showSnackbar(msg, "error");
@@ -591,6 +591,7 @@ export default function Products() {
                     { field: 'name', headerName: 'Product Name', flex: 1, minWidth: 200 },
                     { field: 'sku', headerName: 'SKU', width: 150 },
                     { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (_value: any, row: any) => {
+                        if (!row) return "Uncategorized";
                         const cat = categories.find((c: any) => c.id === row.category_id);
                         return cat ? cat.name : "Uncategorized";
                     }},

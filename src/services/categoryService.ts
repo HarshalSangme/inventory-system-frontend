@@ -7,8 +7,13 @@ export interface Category {
     margin_percent?: number;
 }
 
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+}
+
 export const getCategories = async () => {
-    const response = await api.get<Category[]>('/categories/');
+    const response = await api.get<PaginatedResponse<Category>>('/categories/');
     return response.data;
 };
 
