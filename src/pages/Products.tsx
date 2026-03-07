@@ -39,6 +39,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import DescriptionIcon from "@mui/icons-material/Description";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import DeleteSweepIcon from "@mui/icons-material/DeleteSweep";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -48,6 +49,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
@@ -71,6 +73,8 @@ export default function Products() {
   const [categoryFilter, setCategoryFilter] = useState<number | "">("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+  const [viewProductDialogOpen, setViewProductDialogOpen] = useState(false);
+  const [selectedProductForView, setSelectedProductForView] = useState<Product | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -596,6 +600,56 @@ export default function Products() {
                           <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
                         </Avatar>
                     )},
+                    { field: 'actions', headerName: 'Actions', width: 150, sortable: false, filterable: false, renderCell: (params: any) => {
+                        if (!params || !params.row) return null;
+                        return (
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton 
+                              size="small" 
+                              color="primary"
+                              title="View Details"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedProductForView(params.row);
+                                setViewProductDialogOpen(true);
+                              }}
+                            >
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              title="Edit Product"
+                              onClick={(e) => { 
+                                e.stopPropagation(); 
+                                if (role === "viewonly") return;
+                                setEditingId(params.row.id);
+                                setFormData({
+                                  name: params.row.name,
+                                  sku: params.row.sku,
+                                  price: params.row.price,
+                                  cost_price: params.row.cost_price,
+                                  stock_quantity: params.row.stock_quantity,
+                                  min_stock_level: params.row.min_stock_level,
+                                  description: params.row.description || "",
+                                  category_id: params.row.category_id || null,
+                                  image_url: params.row.image_url || null,
+                                  _manualPrice: false
+                                });
+                                setImagePreview(params.row.image_url || null);
+                                setIsModalOpen(true);
+                              }} disabled={role === "viewonly"}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              title="Delete Product"
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(params.row.id); }} disabled={role === "viewonly"}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        );
+                    }},
                     { field: 'name', headerName: 'Product Name', flex: 1, minWidth: 200 },
                     { field: 'sku', headerName: 'SKU', width: 150 },
                     { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (params: any) => {
@@ -610,37 +664,6 @@ export default function Products() {
                         if (!params || !params.row) return null;
                         const low = params.row.stock_quantity < params.row.min_stock_level;
                         return <Chip label={low ? "Low Stock" : "In Stock"} color={low ? "error" : "success"} size="small" variant="outlined" />;
-                    }},
-                    { field: 'actions', headerName: 'Actions', width: 120, sortable: false, filterable: false, renderCell: (params: any) => {
-                        if (!params || !params.row) return null;
-                        return (
-                          <>
-                            <IconButton size="small" onClick={(e) => { 
-                              e.stopPropagation(); 
-                              if (role === "viewonly") return;
-                              setEditingId(params.row.id);
-                              setFormData({
-                                name: params.row.name,
-                                sku: params.row.sku,
-                                price: params.row.price,
-                                cost_price: params.row.cost_price,
-                                stock_quantity: params.row.stock_quantity,
-                                min_stock_level: params.row.min_stock_level,
-                                description: params.row.description || "",
-                                category_id: params.row.category_id || null,
-                                image_url: params.row.image_url || null,
-                                _manualPrice: false
-                              });
-                              setImagePreview(params.row.image_url || null);
-                              setIsModalOpen(true);
-                            }} disabled={role === "viewonly"}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(params.row.id); }} disabled={role === "viewonly"}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </>
-                        );
                     }}
                   ]}
                   rowCount={totalProducts}
@@ -680,6 +703,159 @@ export default function Products() {
           )}
         </CardContent>
       </Card>
+
+      {/* View Product Details Dialog */}
+      <Dialog
+        open={viewProductDialogOpen}
+        onClose={() => setViewProductDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" component="div" sx={{ fontWeight: 500 }}>
+            Product Details
+          </Typography>
+          <IconButton onClick={() => setViewProductDialogOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {selectedProductForView && (
+            <Grid container spacing={3}>
+              {/* Product Image */}
+              <Grid item xs={12} md={5}>
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: 350,
+                    borderRadius: 2,
+                    border: '1px solid #eee',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    bgcolor: '#f9f9f9',
+                  }}
+                >
+                  {selectedProductForView.image_url ? (
+                    <Box
+                      component="img"
+                      src={selectedProductForView.image_url}
+                      alt={selectedProductForView.name}
+                      sx={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', color: '#ccc' }}>
+                      <ImageIcon sx={{ fontSize: 80, mb: 1 }} />
+                      <Typography variant="body2">No image available</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+
+              {/* Product Info */}
+              <Grid item xs={12} md={7}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box sx={{ width: '100%' }}>
+                    <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+                      SKU: {selectedProductForView.sku}
+                    </Typography>
+                    <Typography variant="h5" sx={{ mt: 0.5, mb: 1, fontWeight: 500, wordBreak: 'break-word' }}>
+                      {selectedProductForView.name}
+                    </Typography>
+                    <Chip 
+                      label={categories.find(c => c.id === selectedProductForView.category_id)?.name || "Uncategorized"} 
+                      size="small" 
+                      color="primary" 
+                      variant="outlined" 
+                    />
+                  </Box>
+
+                  <Divider />
+
+                  <Grid container spacing={2}>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Cost Price</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                        BD {selectedProductForView.cost_price.toFixed(3)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Retail Price</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#2e7d32' }}>
+                        BD {selectedProductForView.price.toFixed(3)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Stock Quantity</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                          {selectedProductForView.stock_quantity}
+                        </Typography>
+                        {selectedProductForView.stock_quantity < selectedProductForView.min_stock_level && (
+                          <Chip label="Low" color="error" size="small" variant="filled" sx={{ height: 20 }} />
+                        )}
+                      </Box>
+                    </Grid>
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">Min Stock Level</Typography>
+                      <Typography variant="body1">{selectedProductForView.min_stock_level}</Typography>
+                    </Grid>
+                  </Grid>
+
+                  <Divider />
+
+                  <Box>
+                    <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                      Description
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {selectedProductForView.description || "No description provided for this product."}
+                    </Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setViewProductDialogOpen(false)} variant="outlined">
+            Close
+          </Button>
+          <Button 
+            variant="contained" 
+            startIcon={<EditIcon />}
+            onClick={() => {
+              if (selectedProductForView) {
+                setEditingId(selectedProductForView.id);
+                setFormData({
+                  name: selectedProductForView.name,
+                  sku: selectedProductForView.sku,
+                  price: selectedProductForView.price,
+                  cost_price: selectedProductForView.cost_price,
+                  stock_quantity: selectedProductForView.stock_quantity,
+                  min_stock_level: selectedProductForView.min_stock_level,
+                  description: selectedProductForView.description || "",
+                  category_id: selectedProductForView.category_id || null,
+                  image_url: selectedProductForView.image_url || null,
+                  _manualPrice: false
+                });
+                setImagePreview(selectedProductForView.image_url || null);
+                setViewProductDialogOpen(false);
+                setIsModalOpen(true);
+              }
+            }}
+            disabled={role === "viewonly"}
+          >
+            Edit Product
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create/Edit Product Dialog */}
       <Dialog
