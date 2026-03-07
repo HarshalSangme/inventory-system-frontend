@@ -214,9 +214,9 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                             rows={partners}
                             columns={[
                                 { field: 'name', headerName: 'Name', flex: 1, minWidth: 150 },
-                                { field: 'email', headerName: 'Email', flex: 1, minWidth: 150, valueGetter: (value: any) => value || '-' },
-                                { field: 'phone', headerName: 'Phone', width: 130, valueGetter: (value: any) => value || '-' },
-                                { field: 'address', headerName: 'Address', flex: 1, minWidth: 200, valueGetter: (value: any) => value || '-' },
+                                { field: 'email', headerName: 'Email', flex: 1, minWidth: 150, valueGetter: (params: any) => params.row.email || '-' },
+                                { field: 'phone', headerName: 'Phone', width: 130, valueGetter: (params: any) => params.row.phone || '-' },
+                                { field: 'address', headerName: 'Address', flex: 1, minWidth: 200, valueGetter: (params: any) => params.row.address || '-' },
                                 { field: 'actions', headerName: 'Actions', width: 100, sortable: false, filterable: false, renderCell: (params: any) => (
                                     <>
                                         <IconButton size="small" color="primary" onClick={() => handleEdit(params.row)} disabled={role === 'viewonly'}>
