@@ -18,7 +18,6 @@ import {
 import { uploadProductImage, deleteProductImage } from "../services/imageUploadService";
 import ImageCropper from "../components/ImageCropper";
 import ConfirmDialog from "../components/ConfirmDialog";
-import DetailsIcon from "@mui/icons-material/Description";
 import LinearProgress from "@mui/material/LinearProgress";
 import Avatar from "@mui/material/Avatar";
 import ImageIcon from "@mui/icons-material/Image";
@@ -591,7 +590,7 @@ export default function Products() {
                     )},
                     { field: 'name', headerName: 'Product Name', flex: 1, minWidth: 200 },
                     { field: 'sku', headerName: 'SKU', width: 150 },
-                    { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (value: any, row: any) => {
+                    { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (_value: any, row: any) => {
                         const cat = categories.find((c: any) => c.id === row.category_id);
                         return cat ? cat.name : "Uncategorized";
                     }},
@@ -640,6 +639,10 @@ export default function Products() {
                     setPage(model.page);
                     setRowsPerPage(model.pageSize);
                   }}
+                  checkboxSelection
+                  onRowSelectionModelChange={(newSelectionModel) => {
+                      setSelectedIds(newSelectionModel as any as number[]);
+                  }}
                   filterMode="server"
                   onFilterModelChange={(model: any) => {
                       if (model.items.length > 0) {
@@ -651,8 +654,7 @@ export default function Products() {
                           setFilterSku("");
                       }
                   }}
-                  checkboxSelection
-                  onRowSelectionModelChange={(newRowSelectionModel: any) => setSelectedIds(newRowSelectionModel as number[])}
+                  onRowClick={() => {}} // Disable default row click if needed
                   // @ts-ignore
                   rowSelectionModel={selectedIds}
                   disableRowSelectionOnClick

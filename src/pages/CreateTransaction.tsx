@@ -99,8 +99,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
             getProducts(),
             getCategories()
         ]);
-        setPartners(pData.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
-        setProducts(prodData);
+        setPartners(pData.data.filter(p => p.type === (type === 'sale' ? 'customer' : 'vendor')));
+        setProducts(prodData.data);
         setCategories(catData);
     };
 

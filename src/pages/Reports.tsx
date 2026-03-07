@@ -73,17 +73,17 @@ export default function Reports() {
             // Format dates as YYYY-MM-DD for backend
             const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
             if (currentReport === 'sales' && (fromDate || toDate)) {
-                transactionsData = await getTransactions(formatDate(fromDate), formatDate(toDate));
+                transactionsData = await getTransactions(0, 1000, undefined, formatDate(fromDate) || undefined, formatDate(toDate) || undefined);
             } else {
-                transactionsData = await getTransactions();
+                transactionsData = await getTransactions(0, 1000);
             }
             const [productsData, partnersData] = await Promise.all([
-                getProducts(),
-                getPartners()
+                getProducts(0, 1000),
+                getPartners(0, 1000)
             ]);
-            setProducts(productsData);
-            setTransactions(transactionsData);
-            setPartners(partnersData);
+            setProducts(productsData.data);
+            setTransactions(transactionsData.data);
+            setPartners(partnersData.data);
         } catch (error) {
             console.error('Failed to load data:', error);
             setSnackbar({ open: true, message: 'Failed to load report data', severity: 'error' });
@@ -111,10 +111,10 @@ export default function Reports() {
             setLoading(true);
             try {
                 const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
-                const filteredTransactions = await getTransactions(formatDate(fromDate), formatDate(toDate));
-                setTransactions(filteredTransactions); // update state for preview consistency
+                const filteredTransactions = await getTransactions(0, 10000, undefined, formatDate(fromDate) || undefined, formatDate(toDate) || undefined);
+                setTransactions(filteredTransactions.data); // update state for preview consistency
                 // Only include selected sales if any are selected
-                let exportSales = filteredTransactions.filter(t => t.type === 'sale');
+                let exportSales = filteredTransactions.data.filter(t => t.type === 'sale');
                 if (selectedSales.length > 0) {
                     exportSales = exportSales.filter(t => selectedSales.includes(t.id));
                 }

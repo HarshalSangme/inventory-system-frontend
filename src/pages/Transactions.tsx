@@ -102,7 +102,7 @@ export default function Transactions({ type }: TransactionsProps) {
         };
         loadTransactionsAndPartners();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [type, dateFrom, dateTo, page, rowsPerPage]);
+    }, [type, dateFrom, dateTo, page, rowsPerPage, searchTerm]);
 
     const refreshTransactions = async () => {
         try {
@@ -135,10 +135,9 @@ export default function Transactions({ type }: TransactionsProps) {
         // Force full refresh
         await refreshTransactions();
     };
-    const deleteTransaction = async (id: number) => {
+    const handleDelete = async (id: number) => {
         // Real API call
         await import('../services/transactionService').then(({ deleteTransaction }) => deleteTransaction(id));
-        // Force full refresh
         await refreshTransactions();
     };
 
@@ -252,7 +251,14 @@ export default function Transactions({ type }: TransactionsProps) {
                                         setPage(model.page);
                                         setRowsPerPage(model.pageSize);
                                     }}
-                                    disableColumnFilter
+                                    filterMode="server"
+                                    onFilterModelChange={(model: any) => {
+                                        if (model.items.length > 0) {
+                                            setSearchTerm(model.items[0].value || '');
+                                        } else {
+                                            setSearchTerm('');
+                                        }
+                                    }}
                                     disableRowSelectionOnClick
                                     autoHeight
                                     sx={{ border: 'none' }}
@@ -439,7 +445,7 @@ export default function Transactions({ type }: TransactionsProps) {
                     <Button onClick={() => { setDeleteDialogOpen(false); setDeleteTarget(null); }}>Cancel</Button>
                     <Button color="error" variant="contained" onClick={async () => {
                         if (deleteTarget) {
-                            await deleteTransaction(deleteTarget.id);
+                          await handleDelete(deleteTarget.id);
                             setDeleteDialogOpen(false);
                             setDeleteTarget(null);
                         }
