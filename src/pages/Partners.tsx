@@ -40,6 +40,7 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     const { role } = useUser();
     const { showSnackbar } = useSnackbar();
     const [partners, setPartners] = useState<Partner[]>([]);
+    const [totalPartners, setTotalPartners] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -65,31 +66,28 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
         address: ''
     });
 
-    useEffect(() => {
-        const loadPartners = async () => {
-            try {
-                const data = await getPartners();
-                setPartners(data.filter(p => p.type === type));
-            } catch (error: any) {
-                console.error('Failed to load partners', error);
-                const msg = error?.response?.data?.detail || 'Failed to load partners';
-                showSnackbar(msg, 'error');
-            } finally {
-                setLoading(false);
-            }
-        };
-        loadPartners();
-    }, [type, showSnackbar]);
-
-    const load = async () => {
+    const loadPartners = async (showLoader = true) => {
+        if (showLoader) setLoading(true);
         try {
-            const data = await getPartners();
-            setPartners(data.filter(p => p.type === type));
+            const res = await getPartners(page * rowsPerPage, rowsPerPage, type);
+            setPartners(res.data);
+            setTotalPartners(res.total);
         } catch (error: any) {
             console.error('Failed to load partners', error);
             const msg = error?.response?.data?.detail || 'Failed to load partners';
             showSnackbar(msg, 'error');
+        } finally {
+            if (showLoader) setLoading(false);
         }
+    };
+
+    useEffect(() => {
+        loadPartners();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [type, page, rowsPerPage]);
+
+    const load = () => {
+        loadPartners(false);
     };
 
     const handleCreate = async (e: React.FormEvent) => {
@@ -176,7 +174,7 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
         setPage(0);
     }, [searchTerm, filterName, filterEmail, filterPhone, filterAddress]);
 
-    const paginatedPartners = filteredPartners.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const paginatedPartners = filteredPartners;
 
     return (
         <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -265,7 +263,7 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
                     </TableContainer>
                     <TablePagination
                         component="div"
-                        count={filteredPartners.length}
+                        count={totalPartners}
                         page={page}
                         onPageChange={(_e, newPage) => setPage(newPage)}
                         rowsPerPage={rowsPerPage}

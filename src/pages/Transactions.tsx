@@ -42,6 +42,7 @@ interface TransactionsProps {
 export default function Transactions({ type }: TransactionsProps) {
     const { role } = useUser();
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [totalTransactions, setTotalTransactions] = useState(0);
     const [partners, setPartners] = useState<Partner[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
@@ -92,11 +93,12 @@ export default function Transactions({ type }: TransactionsProps) {
             setLoading(true);
             try {
                 const [txData, partnerData] = await Promise.all([
-                    getTransactions(dateFrom || undefined, dateTo || undefined),
-                    getPartners()
+                    getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined),
+                    getPartners(0, 1000)
                 ]);
-                setTransactions(txData.filter(t => t.type === type));
-                setPartners(partnerData);
+                setTransactions(txData.data);
+                setTotalTransactions(txData.total);
+                setPartners(partnerData.data);
             } catch (error) {
                 console.error('Failed to load transactions or partners', error);
             } finally {
@@ -104,16 +106,18 @@ export default function Transactions({ type }: TransactionsProps) {
             }
         };
         loadTransactionsAndPartners();
-    }, [type, dateFrom, dateTo]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [type, dateFrom, dateTo, page, rowsPerPage]);
 
     const refreshTransactions = async () => {
         try {
             const [txData, partnerData] = await Promise.all([
-                getTransactions(dateFrom || undefined, dateTo || undefined),
-                getPartners()
+                getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined),
+                getPartners(0, 1000)
             ]);
-            setTransactions(txData.filter(t => t.type === type));
-            setPartners(partnerData);
+            setTransactions(txData.data);
+            setTotalTransactions(txData.total);
+            setPartners(partnerData.data);
         } catch (error) {
             console.error('Failed to load transactions or partners', error);
         }
@@ -147,7 +151,7 @@ export default function Transactions({ type }: TransactionsProps) {
         setPage(0);
     }, [searchTerm, dateFrom, dateTo, filterSku, filterItemName, filterPartner, filterPayment, filterAmount]);
 
-    const paginatedTransactions = filteredTransactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const paginatedTransactions = filteredTransactions;
 
     // Total amount for filtered
     const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
@@ -306,7 +310,7 @@ export default function Transactions({ type }: TransactionsProps) {
                             </TableContainer>
                             <TablePagination
                                 component="div"
-                                count={filteredTransactions.length}
+                                count={totalTransactions}
                                 page={page}
                                 onPageChange={(_e, newPage) => setPage(newPage)}
                                 rowsPerPage={rowsPerPage}

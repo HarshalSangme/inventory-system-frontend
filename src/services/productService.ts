@@ -30,8 +30,15 @@ export interface ProductForm {
 }
 
 
-export const getProducts = async () => {
-    const response = await api.get<Product[]>('/products/');
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+}
+
+export const getProducts = async (skip: number = 0, limit: number = 100) => {
+    const response = await api.get<PaginatedResponse<Product>>('/products/', {
+        params: { skip, limit }
+    });
     return response.data;
 };
 

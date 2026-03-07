@@ -71,6 +71,7 @@ export default function Products() {
   const { role } = useUser();
   const { showSnackbar } = useSnackbar();
   const [products, setProducts] = useState<Product[]>([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -176,18 +177,22 @@ export default function Products() {
 
   useEffect(() => {
     window.__refreshProducts = loadProducts;
-    loadProducts();
     loadCategories();
     return () => {
       delete window.__refreshProducts;
     };
   }, []);
 
+  useEffect(() => {
+    loadProducts();
+  }, [page, rowsPerPage]);
+
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await getProducts();
-      setProducts(data);
+      const res = await getProducts(page * rowsPerPage, rowsPerPage);
+      setProducts(res.data);
+      setTotalProducts(res.total);
     } catch (error: any) {
       console.error("Failed to load products", error);
       const msg = error?.response?.data?.detail || "Failed to load products";
@@ -508,7 +513,7 @@ export default function Products() {
     setPage(0);
   }, [searchTerm, categoryFilter, filterName, filterSku, filterStock, filterCostPrice, filterRetailPrice]);
 
-  const paginatedProducts = filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedProducts = filteredProducts;
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -761,7 +766,7 @@ export default function Products() {
               </TableContainer>
               <TablePagination
                 component="div"
-                count={filteredProducts.length}
+                count={totalProducts}
                 page={page}
                 onPageChange={(_e, newPage) => setPage(newPage)}
                 rowsPerPage={rowsPerPage}

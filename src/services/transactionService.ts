@@ -49,15 +49,23 @@ export const createTransaction = async (transaction: TransactionCreate) => {
     return response.data;
 };
 
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+}
+
 // Implement getTransactions if needed for the list view
-export const getTransactions = async (fromDate?: string, toDate?: string) => {
-    // Send date filters as query params if provided
+export const getTransactions = async (skip: number = 0, limit: number = 100, type?: string, fromDate?: string, toDate?: string) => {
+    // Send Date filters and pagination over query params
     let url = '/transactions/';
     const params: string[] = [];
+    params.push(`skip=${skip}`);
+    params.push(`limit=${limit}`);
+    if (type) params.push(`type=${encodeURIComponent(type)}`);
     if (fromDate) params.push(`from_date=${encodeURIComponent(fromDate)}`);
     if (toDate) params.push(`to_date=${encodeURIComponent(toDate)}`);
     if (params.length) url += '?' + params.join('&');
-    const response = await api.get<Transaction[]>(url);
+    const response = await api.get<PaginatedResponse<Transaction>>(url);
     return response.data;
 };
 

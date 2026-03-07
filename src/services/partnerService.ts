@@ -9,8 +9,13 @@ export interface Partner {
     address?: string;
 }
 
-export const getPartners = async () => {
-    const response = await api.get<Partner[]>('/partners/');
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
+}
+
+export const getPartners = async (skip: number = 0, limit: number = 100, type?: string) => {
+    const response = await api.get<PaginatedResponse<Partner>>('/partners/', { params: { skip, limit, type } });
     return response.data;
 };
 
