@@ -28,6 +28,7 @@ import {
     Grid,
     CircularProgress
 } from '@mui/material';
+import TablePagination from '@mui/material/TablePagination';
 
 import { getTransactions, type Transaction, getInvoicePdf } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
@@ -53,6 +54,17 @@ export default function Transactions({ type }: TransactionsProps) {
     const [dateTo, setDateTo] = useState<string>('');
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(25);
+
+    // Column Filter State
+    const [filterSku, setFilterSku] = useState('');
+    const [filterItemName, setFilterItemName] = useState('');
+    const [filterPartner, setFilterPartner] = useState('');
+    const [filterPayment, setFilterPayment] = useState('');
+    const [filterAmount, setFilterAmount] = useState('');
 
     const handleView = (transaction: Transaction) => {
         setSelectedTransaction(transaction);
@@ -109,13 +121,33 @@ export default function Transactions({ type }: TransactionsProps) {
 
     const title = type === 'purchase' ? 'Purchases' : 'Sales';
 
-    let filteredTransactions = transactions.filter(t =>
-        t.id.toString().includes(searchTerm) ||
-        new Date(t.date).toLocaleDateString().includes(searchTerm)
-    );
+    let filteredTransactions = transactions.filter(t => {
+        const matchesSearch = t.id.toString().includes(searchTerm) ||
+            new Date(t.date).toLocaleDateString().includes(searchTerm);
+        const partnerName = partners.find(p => p.id === t.partner_id)?.name || '';
+        const matchesPartner = filterPartner === '' || partnerName.toLowerCase().includes(filterPartner.toLowerCase());
+        const matchesPayment = filterPayment === '' || (t.payment_method || '').toLowerCase().includes(filterPayment.toLowerCase());
+        const matchesAmount = filterAmount === '' || String(t.total_amount).includes(filterAmount);
+        let matchesSku = true;
+        let matchesItemName = true;
+        if (type === 'sale' && t.items && t.items.length > 0) {
+            const sku = t.items[0]?.product?.sku || '';
+            const itemName = t.items[0]?.product?.name || '';
+            matchesSku = filterSku === '' || sku.toLowerCase().includes(filterSku.toLowerCase());
+            matchesItemName = filterItemName === '' || itemName.toLowerCase().includes(filterItemName.toLowerCase());
+        }
+        return matchesSearch && matchesPartner && matchesPayment && matchesAmount && matchesSku && matchesItemName;
+    });
     // Date filtering now handled server-side
     // Sort by date descending
     filteredTransactions = filteredTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Reset page when filters change
+    useEffect(() => {
+        setPage(0);
+    }, [searchTerm, dateFrom, dateTo, filterSku, filterItemName, filterPartner, filterPayment, filterAmount]);
+
+    const paginatedTransactions = filteredTransactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     // Total amount for filtered
     const totalAmount = filteredTransactions.reduce((sum, t) => sum + (t.total_amount || 0), 0);
@@ -214,9 +246,20 @@ export default function Transactions({ type }: TransactionsProps) {
                                         <TableCell align="right" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Amount</TableCell>
                                         <TableCell align="center" sx={{ fontWeight: 400, color: '#1a1a1a' }}>Actions</TableCell>
                                     </TableRow>
+                                    {/* Column Filter Row */}
+                                    <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
+                                        <TableCell />
+                                        <TableCell />
+                                        {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterSku} onChange={e => setFilterSku(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
+                                        {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterItemName} onChange={e => setFilterItemName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
+                                        <TableCell><TextField size="small" placeholder="Filter..." value={filterPartner} onChange={e => setFilterPartner(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>
+                                        {type === 'sale' && <TableCell><TextField size="small" placeholder="Filter..." value={filterPayment} onChange={e => setFilterPayment(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} /></TableCell>}
+                                        <TableCell align="right"><TextField size="small" placeholder="Filter..." value={filterAmount} onChange={e => setFilterAmount(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} /></TableCell>
+                                        <TableCell />
+                                    </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {filteredTransactions.map((transaction, idx) => {
+                                    {paginatedTransactions.map((transaction, idx) => {
                                         const partnerName = partners.find(p => p.id === transaction.partner_id)?.name || transaction.partner_id;
                                         // For sales, show first item's SKU and payment mode
                                         let sku = '-';
@@ -227,7 +270,7 @@ export default function Transactions({ type }: TransactionsProps) {
                                         }
                                         return (
                                             <TableRow key={transaction.id} hover sx={{ '&:hover': { backgroundColor: '#f9f9f9' } }}>
-                                                <TableCell>{idx + 1}</TableCell>
+                                                <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
                                                 <TableCell>{new Date(transaction.date).toLocaleDateString()}</TableCell>
                                                 {type === 'sale' && <TableCell>{sku}</TableCell>}
                                                 {type === 'sale' && <TableCell sx={{ minWidth: 260, maxWidth: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{itemName}</TableCell>}

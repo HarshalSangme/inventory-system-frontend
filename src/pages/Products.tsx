@@ -65,6 +65,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
+import TablePagination from "@mui/material/TablePagination";
 
 export default function Products() {
   const { role } = useUser();
@@ -98,6 +99,17 @@ export default function Products() {
   >("idle");
   const [uploadMessage, setUploadMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
+
+  // Pagination State
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+
+  // Column Filter State
+  const [filterName, setFilterName] = useState("");
+  const [filterSku, setFilterSku] = useState("");
+  const [filterStock, setFilterStock] = useState("");
+  const [filterCostPrice, setFilterCostPrice] = useState("");
+  const [filterRetailPrice, setFilterRetailPrice] = useState("");
 
   // Category State
   const [categories, setCategories] = useState<Category[]>([]);
@@ -478,8 +490,25 @@ export default function Products() {
       p.sku.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory =
       categoryFilter === "" || p.category_id === categoryFilter;
-    return matchesSearch && matchesCategory;
+    const matchesNameCol =
+      filterName === "" || p.name.toLowerCase().includes(filterName.toLowerCase());
+    const matchesSkuCol =
+      filterSku === "" || p.sku.toLowerCase().includes(filterSku.toLowerCase());
+    const matchesStockCol =
+      filterStock === "" || String(p.stock_quantity).includes(filterStock);
+    const matchesCostCol =
+      filterCostPrice === "" || String(p.cost_price).includes(filterCostPrice);
+    const matchesRetailCol =
+      filterRetailPrice === "" || String(p.price).includes(filterRetailPrice);
+    return matchesSearch && matchesCategory && matchesNameCol && matchesSkuCol && matchesStockCol && matchesCostCol && matchesRetailCol;
   });
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [searchTerm, categoryFilter, filterName, filterSku, filterStock, filterCostPrice, filterRetailPrice]);
+
+  const paginatedProducts = filteredProducts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -590,120 +619,156 @@ export default function Products() {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer
-              component={Paper}
-              sx={{ boxShadow: "none", border: "1px solid #f0f0f0" }}
-            >
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ backgroundColor: "#f9f9f9" }}>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
-                        indeterminate={selectedIds.length > 0 && selectedIds.length < filteredProducts.length}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectAll(e.target.checked)}
-                      />
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SR. NO.</TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", width: 50 }}>Image</TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", minWidth: 240 }}>Product Name</TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SKU</TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Category</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Cost Price</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Retail Price</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Stock</TableCell>
-                    <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Status</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Details</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredProducts.map((product, idx) => (
-                    <TableRow key={product.id} hover sx={{ "&:hover": { backgroundColor: "#f9f9f9" } }}>
+            <>
+              <TableContainer
+                component={Paper}
+                sx={{ boxShadow: "none", border: "1px solid #f0f0f0" }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ backgroundColor: "#f9f9f9" }}>
                       <TableCell padding="checkbox">
                         <Checkbox
-                          checked={selectedIds.includes(product.id)}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectOne(product.id, e.target.checked)}
+                          checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length}
+                          indeterminate={selectedIds.length > 0 && selectedIds.length < filteredProducts.length}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectAll(e.target.checked)}
                         />
                       </TableCell>
-                      <TableCell>{idx + 1}</TableCell>
-                      <TableCell sx={{ width: 50, p: 0.5 }}>
-                        <Avatar
-                          src={product.image_url || undefined}
-                          variant="rounded"
-                          sx={{ width: 40, height: 40, bgcolor: '#f0f0f0' }}
-                        >
-                          <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
-                        </Avatar>
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 500, minWidth: 240 }}>{product.name}</TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{product.sku}</Typography>
-                      </TableCell>
-                      <TableCell>{product.category?.name || (<span style={{ color: "#aaa" }}>Uncategorized</span>)}</TableCell>
-                      <TableCell align="right" sx={{ color: "#1976d2", fontWeight: 400 }}>{product.cost_price}</TableCell>
-                      <TableCell align="right" sx={{ color: "#2e7d32", fontWeight: 400 }}>{product.price}</TableCell>
-                      <TableCell align="right">{product.stock_quantity}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={product.stock_quantity < product.min_stock_level ? "Low Stock" : "In Stock"}
-                          color={product.stock_quantity < product.min_stock_level ? "error" : "success"}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton size="small" onClick={() => {/* TODO: implement details view */ }}>
-                          <DetailsIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            if (role === "viewonly") return;
-                            setEditingId(product.id);
-                            setFormData({
-                              name: product.name,
-                              sku: product.sku,
-                              price: product.price,
-                              cost_price: product.cost_price,
-                              stock_quantity: product.stock_quantity,
-                              min_stock_level: product.min_stock_level,
-                              description: product.description || "",
-                              category_id: product.category_id || null,
-                              image_url: product.image_url || null,
-                            });
-                            setImagePreview(product.image_url || null);
-                            setIsModalOpen(true);
-                          }}
-                          disabled={role === "viewonly"}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => setDeleteConfirm(product.id)}
-                          disabled={role === "viewonly"}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SR. NO.</TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", width: 50 }}>Image</TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a", minWidth: 240 }}>Product Name</TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>SKU</TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Category</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Cost Price</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Retail Price</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Stock</TableCell>
+                      <TableCell sx={{ fontWeight: 400, color: "#1a1a1a" }}>Status</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Details</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 400, color: "#1a1a1a" }}>Actions</TableCell>
                     </TableRow>
-                  ))}
-                  {filteredProducts.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
-                        <Typography color="text.secondary">
-                          No products found
-                        </Typography>
+                    {/* Column Filter Row */}
+                    <TableRow sx={{ backgroundColor: '#f5f5fa' }}>
+                      <TableCell padding="checkbox" />
+                      <TableCell />
+                      <TableCell />
+                      <TableCell>
+                        <TextField size="small" placeholder="Filter..." value={filterName} onChange={e => setFilterName(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
                       </TableCell>
+                      <TableCell>
+                        <TextField size="small" placeholder="Filter..." value={filterSku} onChange={e => setFilterSku(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem' } }} />
+                      </TableCell>
+                      <TableCell />
+                      <TableCell align="right">
+                        <TextField size="small" placeholder="Filter..." value={filterCostPrice} onChange={e => setFilterCostPrice(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField size="small" placeholder="Filter..." value={filterRetailPrice} onChange={e => setFilterRetailPrice(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField size="small" placeholder="Filter..." value={filterStock} onChange={e => setFilterStock(e.target.value)} variant="standard" fullWidth InputProps={{ disableUnderline: true, sx: { fontSize: '0.75rem', textAlign: 'right' } }} />
+                      </TableCell>
+                      <TableCell />
+                      <TableCell />
+                      <TableCell />
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {paginatedProducts.map((product, idx) => (
+                      <TableRow key={product.id} hover sx={{ "&:hover": { backgroundColor: "#f9f9f9" } }}>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={selectedIds.includes(product.id)}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleSelectOne(product.id, e.target.checked)}
+                          />
+                        </TableCell>
+                        <TableCell>{page * rowsPerPage + idx + 1}</TableCell>
+                        <TableCell sx={{ width: 50, p: 0.5 }}>
+                          <Avatar
+                            src={product.image_url || undefined}
+                            variant="rounded"
+                            sx={{ width: 40, height: 40, bgcolor: '#f0f0f0' }}
+                          >
+                            <ImageIcon sx={{ color: '#ccc', fontSize: 20 }} />
+                          </Avatar>
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 500, minWidth: 240 }}>{product.name}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{product.sku}</Typography>
+                        </TableCell>
+                        <TableCell>{product.category?.name || (<span style={{ color: "#aaa" }}>Uncategorized</span>)}</TableCell>
+                        <TableCell align="right" sx={{ color: "#1976d2", fontWeight: 400 }}>{product.cost_price}</TableCell>
+                        <TableCell align="right" sx={{ color: "#2e7d32", fontWeight: 400 }}>{product.price}</TableCell>
+                        <TableCell align="right">{product.stock_quantity}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={product.stock_quantity < product.min_stock_level ? "Low Stock" : "In Stock"}
+                            color={product.stock_quantity < product.min_stock_level ? "error" : "success"}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton size="small" onClick={() => {/* TODO: implement details view */ }}>
+                            <DetailsIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              if (role === "viewonly") return;
+                              setEditingId(product.id);
+                              setFormData({
+                                name: product.name,
+                                sku: product.sku,
+                                price: product.price,
+                                cost_price: product.cost_price,
+                                stock_quantity: product.stock_quantity,
+                                min_stock_level: product.min_stock_level,
+                                description: product.description || "",
+                                category_id: product.category_id || null,
+                                image_url: product.image_url || null,
+                              });
+                              setImagePreview(product.image_url || null);
+                              setIsModalOpen(true);
+                            }}
+                            disabled={role === "viewonly"}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => setDeleteConfirm(product.id)}
+                            disabled={role === "viewonly"}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {filteredProducts.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
+                          <Typography color="text.secondary">
+                            No products found
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                component="div"
+                count={filteredProducts.length}
+                page={page}
+                onPageChange={(_e, newPage) => setPage(newPage)}
+                rowsPerPage={rowsPerPage}
+                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                rowsPerPageOptions={[10, 25, 50, 100]}
+              />
+            </>
           )}
         </CardContent>
       </Card>
