@@ -590,46 +590,50 @@ export default function Products() {
                     )},
                     { field: 'name', headerName: 'Product Name', flex: 1, minWidth: 200 },
                     { field: 'sku', headerName: 'SKU', width: 150 },
-                    { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (_value: any, row: any) => {
-                        if (!row) return "Uncategorized";
-                        const cat = categories.find((c: any) => c.id === row.category_id);
+                    { field: 'category_id', headerName: 'Category', width: 150, valueGetter: (params: any) => {
+                        if (!params || !params.row) return "Uncategorized";
+                        const cat = categories.find((c: any) => c.id === params.row.category_id);
                         return cat ? cat.name : "Uncategorized";
                     }},
                     { field: 'cost_price', headerName: 'Cost Price', width: 110, type: 'number' },
                     { field: 'price', headerName: 'Retail Price', width: 110, type: 'number' },
                     { field: 'stock_quantity', headerName: 'Stock', width: 100, type: 'number' },
                     { field: 'status', headerName: 'Status', width: 120, filterable: false, renderCell: (params: any) => {
+                        if (!params || !params.row) return null;
                         const low = params.row.stock_quantity < params.row.min_stock_level;
                         return <Chip label={low ? "Low Stock" : "In Stock"} color={low ? "error" : "success"} size="small" variant="outlined" />;
                     }},
-                    { field: 'actions', headerName: 'Actions', width: 120, sortable: false, filterable: false, renderCell: (params: any) => (
-                        <>
-                          <IconButton size="small" onClick={(e) => { 
-                            e.stopPropagation(); 
-                            if (role === "viewonly") return;
-                            setEditingId(params.row.id);
-                            setFormData({
-                              name: params.row.name,
-                              sku: params.row.sku,
-                              price: params.row.price,
-                              cost_price: params.row.cost_price,
-                              stock_quantity: params.row.stock_quantity,
-                              min_stock_level: params.row.min_stock_level,
-                              description: params.row.description || "",
-                              category_id: params.row.category_id || null,
-                              image_url: params.row.image_url || null,
-                              _manualPrice: false
-                            });
-                            setImagePreview(params.row.image_url || null);
-                            setIsModalOpen(true);
-                          }} disabled={role === "viewonly"}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(params.row.id); }} disabled={role === "viewonly"}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </>
-                    )}
+                    { field: 'actions', headerName: 'Actions', width: 120, sortable: false, filterable: false, renderCell: (params: any) => {
+                        if (!params || !params.row) return null;
+                        return (
+                          <>
+                            <IconButton size="small" onClick={(e) => { 
+                              e.stopPropagation(); 
+                              if (role === "viewonly") return;
+                              setEditingId(params.row.id);
+                              setFormData({
+                                name: params.row.name,
+                                sku: params.row.sku,
+                                price: params.row.price,
+                                cost_price: params.row.cost_price,
+                                stock_quantity: params.row.stock_quantity,
+                                min_stock_level: params.row.min_stock_level,
+                                description: params.row.description || "",
+                                category_id: params.row.category_id || null,
+                                image_url: params.row.image_url || null,
+                                _manualPrice: false
+                              });
+                              setImagePreview(params.row.image_url || null);
+                              setIsModalOpen(true);
+                            }} disabled={role === "viewonly"}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(params.row.id); }} disabled={role === "viewonly"}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        );
+                    }}
                   ]}
                   rowCount={totalProducts}
                   loading={loading}

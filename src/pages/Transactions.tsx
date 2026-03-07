@@ -213,20 +213,20 @@ export default function Transactions({ type }: TransactionsProps) {
                                 <DataGrid
                                     rows={transactions}
                                     columns={[
-                                        { field: 'id', headerName: 'Entry No.', width: 120, valueGetter: (_value: any, row: any) => type === 'purchase' ? `PUR-${row.id}` : `SAL-${row.id}` },
-                                        { field: 'date', headerName: 'Date', width: 110, valueGetter: (value: any) => new Date(value).toLocaleDateString() },
+                                        { field: 'id', headerName: 'Entry No.', width: 120, valueGetter: (params: any) => type === 'purchase' ? `PUR-${params.row.id}` : `SAL-${params.row.id}` },
+                                        { field: 'date', headerName: 'Date', width: 110, valueGetter: (params: any) => new Date(params.row.date).toLocaleDateString() },
                                         ...(type === 'sale' ? [
-                                            { field: 'sku', headerName: 'SKU Code', width: 120, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.sku || '-' },
-                                            { field: 'itemName', headerName: 'Item Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => row.items?.[0]?.product?.name || '-' },
+                                            { field: 'sku', headerName: 'SKU Code', width: 120, valueGetter: (params: any) => params.row.items?.[0]?.product?.sku || '-' },
+                                            { field: 'itemName', headerName: 'Item Name', flex: 1, minWidth: 150, valueGetter: (params: any) => params.row.items?.[0]?.product?.name || '-' },
                                         ] : []),
-                                        { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (_value: any, row: any) => {
-                                            if (!row) return "-";
-                                            return partners.find((p: any) => p.id === row.partner_id)?.name || row.partner_id || "-";
+                                        { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (params: any) => {
+                                            if (!params || !params.row) return "-";
+                                            return partners.find((p: any) => p.id === params.row.partner_id)?.name || params.row.partner_id || "-";
                                         }},
                                         ...(type === 'sale' ? [
-                                            { field: 'payment_method', headerName: 'Payment Mode', width: 130, valueGetter: (_value: any, row: any) => row.payment_method || '-' },
+                                            { field: 'payment_method', headerName: 'Payment Mode', width: 130, valueGetter: (params: any) => params.row.payment_method || '-' },
                                         ] : []),
-                                        { field: 'total_amount', headerName: 'Amount', width: 110, type: 'number', valueGetter: (value: any) => value !== undefined && value !== null ? parseFloat(value).toFixed(2) : '0.00' },
+                                        { field: 'total_amount', headerName: 'Amount', width: 110, type: 'number', valueGetter: (params: any) => params.row.total_amount !== undefined && params.row.total_amount !== null ? parseFloat(params.row.total_amount).toFixed(2) : '0.00' },
                                         { field: 'actions', headerName: 'Actions', width: 140, sortable: false, filterable: false, renderCell: (params: any) => (
                                             <>
                                                 <IconButton size="small" color="primary" onClick={() => handleView(params.row)} title="View Details">

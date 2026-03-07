@@ -59,8 +59,8 @@ export default function Dashboard() {
         min_stock_level: p.min_stock_level
     }));
     const pieData = [
-        { name: 'In Stock', value: Math.max(stats.total_products - stats.low_stock_items, 0), color: '#4caf50' },
-        { name: 'Low Stock', value: stats.low_stock_items, color: '#ff9800' }
+        { name: 'In Stock', value: Math.max((stats.total_products || 0) - (stats.low_stock_items || 0), 0), color: '#4caf50' },
+        { name: 'Low Stock', value: stats.low_stock_items || 0, color: '#ff9800' }
     ];
 
     return (
