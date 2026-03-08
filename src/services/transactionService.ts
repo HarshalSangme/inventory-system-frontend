@@ -27,6 +27,9 @@ export interface TransactionCreate {
     vat_percent?: number;
     sales_person?: string;
     payment_method?: string;
+    amount_paid?: number;
+    payment_channel?: string;
+    payment_reference?: string;
 }
 
 export interface Transaction {
@@ -38,7 +41,9 @@ export interface Transaction {
     vat_percent?: number;
     sales_person?: string;
     payment_method?: string;
-    items: TransactionItem[]; // Start with basic response, might receive expanded items
+    amount_paid: number;
+    payment_status: 'paid' | 'partial' | 'unpaid';
+    items: TransactionItem[]; 
 }
 
 export const createTransaction = async (transaction: TransactionCreate) => {

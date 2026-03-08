@@ -14,21 +14,21 @@ import StorefrontIcon from '@mui/icons-material/Storefront';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import SellIcon from '@mui/icons-material/Sell';
 import BarChartIcon from '@mui/icons-material/BarChart';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 
 const drawerWidth = 200;
 
 const items = [
     { icon: <Inventory2Icon />, label: 'Dashboard', path: '/' },
+    { icon: <AccountBalanceWalletIcon />, label: 'Accounts', path: '/accounts' },
     { icon: <PeopleIcon />, label: 'Customers', path: '/customers' },
     { icon: <PeopleIcon />, label: 'Vendors', path: '/vendors' },
     { icon: <StorefrontIcon />, label: 'Products', path: '/products' },
     { icon: <SellIcon />, label: 'Sales', path: '/sales' },
     { icon: <ShoppingCartIcon />, label: 'Purchases', path: '/purchases' },
-    { icon: <PictureAsPdfIcon />, label: 'Invoices', path: '/invoices' },
     { icon: <BarChartIcon />, label: 'Reports', path: '/reports' },
 ];
 

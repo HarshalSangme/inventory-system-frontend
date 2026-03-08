@@ -59,6 +59,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         vat_percent: item.vat_percent ?? 0,
         product: item.product
     })) : []);
+    const [amountPaid, setAmountPaid] = useState<number | ''>(editData ? editData.amount_paid : '');
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(false);
     const isFirstMount = useRef(true);
@@ -108,6 +109,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 product: item.product // Ensure product object is preserved
             })));
             setPaymentMethod(editData.payment_method || 'Cash');
+            setAmountPaid(editData.amount_paid || '');
         }
     }, [editData]);
 
@@ -191,8 +193,15 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         const transaction: TransactionCreate = {
             partner_id: Number(selectedPartnerId),
             type: type,
-            items: items,
-            payment_method: paymentMethod
+            items: items.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                discount: item.discount,
+                vat_percent: item.vat_percent
+            })),
+            payment_method: paymentMethod,
+            amount_paid: amountPaid === '' ? grandTotal : Number(amountPaid)
         };
         try {
             if (editData && onEdit) {
@@ -615,10 +624,45 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                             </Box>
                         )}
                         <Divider sx={{ my: 0.5 }} />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">Payment Method:</Typography>
+                            <Select
+                                size="small"
+                                value={paymentMethod}
+                                onChange={e => setPaymentMethod(e.target.value)}
+                                sx={{ minWidth: 120, height: 28, fontSize: '0.8rem' }}
+                                disabled={role === 'viewonly'}
+                            >
+                                <MenuItem value="Cash">Cash</MenuItem>
+                                <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                                <MenuItem value="Cheque">Cheque</MenuItem>
+                                <MenuItem value="Card">Card</MenuItem>
+                                <MenuItem value="Credit">Credit/Pay Later</MenuItem>
+                            </Select>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="body2" color="text.secondary">Amount Paid:</Typography>
+                            <TextField
+                                type="number"
+                                size="small"
+                                placeholder={grandTotal.toFixed(3)}
+                                value={amountPaid}
+                                onChange={e => setAmountPaid(e.target.value === '' ? '' : Number(e.target.value))}
+                                sx={{ width: 120, '& .MuiInputBase-input': { py: 0.5, fontSize: '0.8rem', textAlign: 'right' } }}
+                                disabled={role === 'viewonly'}
+                            />
+                        </Box>
+                        <Divider sx={{ my: 0.5 }} />
                         <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Net Total (BHD):</Typography>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#2e7d32' }}>{grandTotal.toFixed(3)}</Typography>
                         </Box>
+                        {amountPaid !== '' && Number(amountPaid) < grandTotal && (
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+                                <Typography variant="caption" color="error" fontWeight={600}>Balance Due:</Typography>
+                                <Typography variant="caption" color="error" fontWeight={600}>{(grandTotal - Number(amountPaid)).toFixed(3)}</Typography>
+                            </Box>
+                        )}
                     </Paper>
                 )}
             </Box>

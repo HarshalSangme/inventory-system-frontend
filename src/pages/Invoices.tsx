@@ -1,59 +1,36 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useUser } from '../context/UserContext';
 import {
-  Button,
-  Box,
-  Typography,
-  Autocomplete,
-  TextField,
-  Snackbar,
-  Paper,
-  IconButton,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Grid,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Card,
-  CardContent,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel
+  Button, Box, Typography, TextField, Snackbar, Paper, IconButton,
+  CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+  Grid, Divider, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, Card, CardContent, MenuItem, Select,
+  FormControl, InputLabel, Chip, InputAdornment, Avatar, Tooltip,
+  Tab, Tabs, Badge, LinearProgress, Autocomplete
 } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
+import SearchIcon from '@mui/icons-material/Search';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import MoneyOffIcon from '@mui/icons-material/MoneyOff';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import PaymentIcon from '@mui/icons-material/Payment';
+import HistoryIcon from '@mui/icons-material/History';
 import { getInvoices, downloadInvoicePDF } from '../services/invoiceService';
+import { getAccountsSummary, recordPayment, getPartnerStatement, type LedgerEntry } from '../services/accountService';
+import { getPartners, type Partner } from '../services/partnerService';
 
-const PAYMENT_TERMS_OPTIONS = [
-  'CASH',
-  'BANK',
-  'CREDIT',
-  'NET 15',
-  'NET 30',
-  'NET 45',
-  'NET 60',
-  'COD',
-  'PREPAID'
-];
+const PAYMENT_TERMS_OPTIONS = ['CASH', 'BANK', 'CREDIT', 'NET 15', 'NET 30', 'NET 45', 'NET 60', 'COD', 'PREPAID'];
 
-// Generate invoice number in format JOT/YYYY/XXX
 function generateInvoiceNumber(invoiceId: number): string {
   const year = new Date().getFullYear();
-  const paddedId = String(invoiceId).padStart(3, '0');
-  return `JOT/${year}/${paddedId}`;
+  return `JOT/${year}/${String(invoiceId).padStart(3, '0')}`;
 }
 
 interface InvoiceEditData {
@@ -61,411 +38,595 @@ interface InvoiceEditData {
   paymentTerms: string;
   dueDate: string;
   salesPerson: string;
-  notes: string;
 }
 
-// PDF generation is handled by backend using Python ReportLab
-// See: backend/app/invoice_pdf.py and POST /transactions/{id}/invoice endpoint
+const getStatusColor = (status: string): 'success' | 'warning' | 'error' | 'default' => {
+  const s = (status || 'unpaid').toLowerCase();
+  if (s === 'paid') return 'success';
+  if (s === 'partial') return 'warning';
+  return 'error';
+};
 
-export default function Invoices() {
+const KpiCard = ({ title, value, sub, icon: Icon, color }: any) => (
+  <Card elevation={0} sx={{ border: '1px solid #e8e8e8', borderLeft: `4px solid ${color}`, height: '100%' }}>
+    <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5, px: 2 }}>
+      <Box>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11, fontWeight: 500 }}>{title}</Typography>
+        <Typography sx={{ fontWeight: 600, color: '#1a1a1a', fontSize: '1.05rem', mt: 0.25 }}>{value}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{sub}</Typography>
+      </Box>
+      <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: `${color}18`, color, display: 'flex' }}>
+        <Icon sx={{ fontSize: 22 }} />
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+export default function Accounts() {
   const { role } = useUser();
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [selected, setSelected] = useState<any>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-  // Get logged-in user's username for sales person
+  // Invoice / Transaction state
+  const [allInvoices, setAllInvoices] = useState<any[]>([]);
+  const [downloading, setDownloading] = useState(false);
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedInv, setSelectedInv] = useState<any>(null);
+  const [search, setSearch] = useState('');
+  const [invoiceTabValue, setInvoiceTabValue] = useState(0);
+  const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [editData, setEditData] = useState<InvoiceEditData>({ invoiceNumber: '', paymentTerms: 'CREDIT', dueDate: '', salesPerson: '' });
+
+  // Accounts / Ledger state
+  const [accountSummary, setAccountSummary] = useState({ total_receivables: 0, total_payables: 0 });
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [statement, setStatement] = useState<LedgerEntry[]>([]);
+  const [loadingStatement, setLoadingStatement] = useState(false);
+
+  // Payment recording state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [paymentTx, setPaymentTx] = useState<any>(null);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  // Main page tab (Invoices vs Ledger Statement)
+  const [mainTab, setMainTab] = useState(0);
+
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
+
   const getLoggedInUsername = (): string => {
     const token = localStorage.getItem('token');
     if (!token) return '';
-    try {
-      const payload = token.split('.')[1];
-      const decoded = JSON.parse(atob(payload));
-      return decoded.sub || '';
-    } catch {
-      return '';
-    }
+    try { return JSON.parse(atob(token.split('.')[1])).sub || ''; } catch { return ''; }
   };
 
-  // Edit form state
-  const [editData, setEditData] = useState<InvoiceEditData>({
-    invoiceNumber: '',
-    paymentTerms: 'CREDIT',
-    dueDate: '',
-    salesPerson: getLoggedInUsername(),
-    notes: ''
-  });
+  const loadAll = async () => {
+    try {
+      setLoadingInvoices(true);
+      const [invRes, summaryRes, partnerRes] = await Promise.all([
+        getInvoices(0, 500),
+        getAccountsSummary(),
+        getPartners(0, 1000),
+      ]);
+      setAllInvoices(invRes.data || []);
+      setAccountSummary(summaryRes);
+      setPartners(partnerRes.data || []);
+    } catch { setSnackbar({ open: true, message: 'Failed to load data', severity: 'error' }); }
+    finally { setLoadingInvoices(false); }
+  };
 
-  // Snackbar State
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info' | 'warning';
-  }>({ open: false, message: '', severity: 'success' });
+  useEffect(() => { loadAll(); }, []);
 
-  const [loading, setLoading] = useState(false);
-  const [inputValue, setInputValue] = useState('');
+  const fetchStatement = async (partnerId: number) => {
+    setLoadingStatement(true);
+    try {
+      const data = await getPartnerStatement(partnerId);
+      setStatement(data);
+    } catch { console.error('Failed to fetch statement'); }
+    finally { setLoadingStatement(false); }
+  };
 
   useEffect(() => {
-    loadInvoices();
-  }, [inputValue]);
+    if (selectedPartner) fetchStatement(selectedPartner.id);
+    else setStatement([]);
+  }, [selectedPartner]);
 
-  const loadInvoices = async () => {
-    try {
-      setLoading(true);
-      const res = await getInvoices(0, 50, inputValue || undefined);
-      setInvoices(res.data);
-    } catch (error) {
-      console.error('Failed to load invoices:', error);
-      setSnackbar({ open: true, message: 'Failed to load invoices', severity: 'error' });
-    } finally {
-      setLoading(false);
+  // Derived KPIs
+  const kpi = useMemo(() => {
+    const unpaidList = allInvoices.filter(i => (i.payment_status || 'unpaid') === 'unpaid');
+    const partialList = allInvoices.filter(i => i.payment_status === 'partial');
+    const totalOutstanding = [...unpaidList, ...partialList].reduce((sum, i) => {
+      return sum + Math.max(0, (parseFloat(i.total_amount) || 0) - (parseFloat(i.amount_paid) || 0));
+    }, 0);
+    return { total: allInvoices.length, unpaidCount: unpaidList.length, partialCount: partialList.length, paidCount: allInvoices.filter(i => i.payment_status === 'paid').length, totalOutstanding };
+  }, [allInvoices]);
+
+  // Filtered invoices
+  const filtered = useMemo(() => {
+    let list = allInvoices;
+    if (invoiceTabValue === 1) list = list.filter(i => (i.payment_status || 'unpaid') === 'unpaid');
+    else if (invoiceTabValue === 2) list = list.filter(i => i.payment_status === 'partial');
+    else if (invoiceTabValue === 3) list = list.filter(i => i.payment_status === 'paid');
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(i => (i.partner?.name || '').toLowerCase().includes(q) || String(i.id).includes(q) || (i.sales_person || '').toLowerCase().includes(q));
     }
+    return list;
+  }, [allInvoices, invoiceTabValue, search]);
+
+  const getAmounts = (inv: any) => {
+    const total = parseFloat(inv?.total_amount) || 0;
+    const paid = parseFloat(inv?.amount_paid) || 0;
+    const due = Math.max(0, total - paid);
+    const pct = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
+    return { total, paid, due, pct };
   };
 
-  const handleOpenEditDialog = () => {
-    if (!selected) return;
+  const handleOpenDetail = (inv: any) => { setSelectedInv(inv); setDetailDialogOpen(true); };
 
-    // Calculate default due date (30 days from invoice date)
-    const invoiceDate = new Date(selected.date);
+  const handleOpenPdfDialog = (inv: any) => {
+    const invoiceDate = new Date(inv.date);
     const dueDate = new Date(invoiceDate);
     dueDate.setDate(dueDate.getDate() + 30);
-
-    setEditData({
-      invoiceNumber: generateInvoiceNumber(selected.id),
-      paymentTerms: 'CREDIT',
-      dueDate: dueDate.toISOString().split('T')[0],
-      salesPerson: selected.sales_person || getLoggedInUsername(),
-      notes: ''
-    });
-    setEditDialogOpen(true);
+    setSelectedInv(inv);
+    setEditData({ invoiceNumber: generateInvoiceNumber(inv.id), paymentTerms: inv.payment_status === 'paid' ? 'CASH' : 'CREDIT', dueDate: dueDate.toISOString().split('T')[0], salesPerson: inv.sales_person || getLoggedInUsername() });
+    setPdfDialogOpen(true);
   };
 
   const handleDownloadPDF = async () => {
-    if (!selected) return;
-
+    if (!selectedInv) return;
     setDownloading(true);
     try {
-      // Call backend API to generate PDF
-      await downloadInvoicePDF(selected.id, {
-        invoice_number: editData.invoiceNumber,
-        payment_terms: editData.paymentTerms,
-        due_date: editData.dueDate,
-        sales_person: editData.salesPerson,
-      });
+      await downloadInvoicePDF(selectedInv.id, { invoice_number: editData.invoiceNumber, payment_terms: editData.paymentTerms, due_date: editData.dueDate, sales_person: editData.salesPerson });
       setSnackbar({ open: true, message: 'Invoice PDF downloaded successfully', severity: 'success' });
-      setEditDialogOpen(false);
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      setSnackbar({ open: true, message: 'Failed to generate invoice PDF', severity: 'error' });
-    } finally {
-      setDownloading(false);
-    }
+      setPdfDialogOpen(false);
+    } catch { setSnackbar({ open: true, message: 'Failed to generate invoice PDF', severity: 'error' }); }
+    finally { setDownloading(false); }
   };
 
-  const formatDate = (d: any) => {
-    if (!d) return '-';
-    const date = new Date(d);
-    return date.toLocaleDateString('en-GB');
+  const handleOpenPayment = (inv: any) => {
+    const { due } = getAmounts(inv);
+    setPaymentTx(inv);
+    setPaymentAmount(due.toFixed(3));
+    setPaymentMethod('Cash');
+    setPaymentNotes('');
+    setPaymentDialogOpen(true);
   };
+
+  const handleRecordPayment = async () => {
+    if (!paymentTx || !paymentAmount || parseFloat(paymentAmount) <= 0) return;
+    setSubmitting(true);
+    try {
+      await recordPayment({ transaction_id: paymentTx.id, partner_id: paymentTx.partner_id, amount: parseFloat(paymentAmount), payment_method: paymentMethod, notes: paymentNotes });
+      setPaymentDialogOpen(false);
+      setSnackbar({ open: true, message: 'Payment recorded successfully!', severity: 'success' });
+      await loadAll();
+      if (selectedPartner && selectedPartner.id === paymentTx.partner_id) fetchStatement(selectedPartner.id);
+    } catch { setSnackbar({ open: true, message: 'Failed to record payment', severity: 'error' }); }
+    finally { setSubmitting(false); }
+  };
+
+  const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+  const fBHD = (n: number) => `BHD ${n.toFixed(3)}`;
+  const getInitials = (name: string = '') => name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
 
   return (
     <Box sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
-      <Typography variant="h6" sx={{ fontWeight: 400, color: '#1a1a1a', mb: 2 }}>
-        Generate Invoice
-      </Typography>
+      {/* Header */}
+      <Box sx={{ mb: 2.5 }}>
+        <Typography sx={{ fontWeight: 600, color: '#1a1a1a', fontSize: '1.2rem' }}>Accounts</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 11 }}>
+          Manage receivables, record payments, generate invoices and view partner ledger statements.
+        </Typography>
+      </Box>
 
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Select a sale transaction to generate an invoice
-          </Typography>
+      {/* KPI Row — combining invoice + financial data */}
+      <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Total Receivables" value={fBHD(accountSummary.total_receivables)} sub="Owed by customers" icon={TrendingUpIcon} color="#d32f2f" /></Grid>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Total Payables" value={fBHD(accountSummary.total_payables)} sub="Owed to vendors" icon={TrendingDownIcon} color="#ed6c02" /></Grid>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Unpaid Invoices" value={kpi.unpaidCount} sub="Action required" icon={MoneyOffIcon} color="#c62828" /></Grid>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Partial Invoices" value={kpi.partialCount} sub="Partially settled" icon={ReceiptLongIcon} color="#f9a825" /></Grid>
+        <Grid item xs={12} sm={2.4}><KpiCard title="Outstanding Total" value={fBHD(kpi.totalOutstanding)} sub="Net amount owed" icon={AccountBalanceWalletIcon} color="#7b1fa2" /></Grid>
+      </Grid>
 
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                options={invoices}
-                getOptionLabel={inv =>
-                  `${inv.partner?.name || inv.customer_name || 'Unknown'} - ${formatDate(inv.date)} - BHD ${Number(inv.total_amount || 0).toFixed(3)}`
-                }
-                value={selected}
-                onChange={(_, value) => setSelected(value)}
-                inputValue={inputValue}
-                onInputChange={(_, newInputValue) => {
-                  setInputValue(newInputValue);
-                }}
-                loading={loading}
-                size="small"
-                filterOptions={(x) => x} // Disable built-in filtering, use backend instead
-                renderInput={params => (
-                  <TextField 
-                    {...params} 
-                    label="Select Sale Transaction" 
-                    placeholder="Search by customer name or amount..." 
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {loading ? <CircularProgress color="inherit" size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <li {...props} key={option.id}>
-                    <Box sx={{ width: '100%' }}>
-                      <Typography variant="body2" fontWeight={500}>
-                        {option.partner?.name || option.customer_name || 'Unknown Customer'}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Date: {formatDate(option.date)} | Amount: BHD {Number(option.total_amount || 0).toFixed(3)} | Items: {option.items?.length || 0}
+      {/* Main Page Tabs */}
+      <Paper elevation={0} sx={{ border: '1px solid #e8e8e8', mb: 0 }}>
+        <Box sx={{ borderBottom: '1px solid #e8e8e8' }}>
+          <Tabs value={mainTab} onChange={(_, v) => setMainTab(v)}
+            sx={{ px: 2, '& .MuiTab-root': { fontSize: 13, fontWeight: 500, textTransform: 'none', minHeight: 44 } }}>
+            <Tab icon={<ReceiptLongIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Invoice Center" />
+            <Tab icon={<HistoryIcon sx={{ fontSize: 16 }} />} iconPosition="start" label="Partner Statements" />
+          </Tabs>
+        </Box>
+
+        {/* ============ TAB 0: INVOICE CENTER ============ */}
+        {mainTab === 0 && (
+          <Box>
+            {/* Toolbar */}
+            <Box sx={{ px: 2, pt: 1.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              <Tabs value={invoiceTabValue} onChange={(_, v) => setInvoiceTabValue(v)}
+                sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: 12, fontWeight: 500, textTransform: 'none' } }}>
+                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>All <Badge badgeContent={kpi.total} color="default" max={999} sx={{ ml: 1 }} /></Box>} />
+                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Unpaid <Badge badgeContent={kpi.unpaidCount} color="error" max={99} sx={{ ml: 1 }} /></Box>} />
+                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Partial <Badge badgeContent={kpi.partialCount} color="warning" max={99} sx={{ ml: 1 }} /></Box>} />
+                <Tab label="Paid" />
+              </Tabs>
+              <TextField size="small" placeholder="Search by customer, ID, salesperson..."
+                value={search} onChange={e => setSearch(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment> }}
+                sx={{ width: 280, '& .MuiInputBase-input': { fontSize: 12 } }}
+              />
+            </Box>
+            <Divider sx={{ mt: 1 }} />
+            {loadingInvoices && <LinearProgress />}
+
+            <TableContainer>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#f8f9fa', fontWeight: 600, fontSize: 11, color: '#555', py: 1 } }}>
+                    <TableCell>Invoice / Customer</TableCell>
+                    <TableCell>Date</TableCell>
+                    <TableCell align="right">Total</TableCell>
+                    <TableCell align="right">Paid</TableCell>
+                    <TableCell align="right">Net Due</TableCell>
+                    <TableCell align="center">Status</TableCell>
+                    <TableCell align="center" sx={{ width: 110 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filtered.length === 0 ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                      <FilterListIcon sx={{ fontSize: 36, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
+                      <Typography variant="body2" color="text.secondary">No transactions found</Typography>
+                    </TableCell></TableRow>
+                  ) : filtered.map((inv: any) => {
+                    const { total, paid, due, pct } = getAmounts(inv);
+                    return (
+                      <TableRow key={inv.id} hover sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                            <Avatar sx={{ width: 28, height: 28, fontSize: 10, fontWeight: 700, bgcolor: '#1976d210', color: '#1976d2' }}>
+                              {getInitials(inv.partner?.name)}
+                            </Avatar>
+                            <Box>
+                              <Typography fontWeight={500} sx={{ fontSize: 12 }}>{inv.partner?.name || 'Unknown'}</Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>#{generateInvoiceNumber(inv.id)}</Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell><Typography sx={{ fontSize: 12 }}>{formatDate(inv.date)}</Typography></TableCell>
+                        <TableCell align="right"><Typography fontWeight={500} sx={{ fontSize: 12 }}>{fBHD(total)}</Typography></TableCell>
+                        <TableCell align="right">
+                          <Typography sx={{ fontSize: 12, color: '#2e7d32' }}>{fBHD(paid)}</Typography>
+                          <LinearProgress variant="determinate" value={pct} sx={{ height: 3, borderRadius: 1, mt: 0.5, bgcolor: '#e0e0e0', '& .MuiLinearProgress-bar': { bgcolor: pct >= 100 ? '#4caf50' : pct > 0 ? '#ff9800' : '#ef5350' } }} />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Typography fontWeight={due > 0 ? 600 : 400} sx={{ fontSize: 12, color: due > 0 ? '#d32f2f' : '#2e7d32' }}>
+                            {due > 0 ? `− ${fBHD(due)}` : '✓ Settled'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip label={(inv.payment_status || 'unpaid').toUpperCase()} size="small" color={getStatusColor(inv.payment_status)} sx={{ height: 20, fontSize: '0.62rem', fontWeight: 700 }} />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center' }}>
+                            <Tooltip title="View Details"><IconButton size="small" onClick={() => handleOpenDetail(inv)}><InfoOutlinedIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                            <Tooltip title="Generate PDF"><IconButton size="small" color="primary" onClick={() => handleOpenPdfDialog(inv)} disabled={role === 'viewonly'}><PictureAsPdfIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                            {(inv.payment_status === 'unpaid' || inv.payment_status === 'partial') && (
+                              <Tooltip title="Record Payment"><IconButton size="small" color="success" onClick={() => handleOpenPayment(inv)} disabled={role === 'viewonly'}><PaymentIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Box sx={{ px: 2, py: 1, borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Showing {filtered.length} of {allInvoices.length} invoices</Typography>
+              <Button size="small" sx={{ fontSize: 10 }} onClick={loadAll}>Refresh</Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* ============ TAB 1: PARTNER STATEMENTS ============ */}
+        {mainTab === 1 && (
+          <Box sx={{ p: 2 }}>
+            <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
+              <Grid item xs={12} md={6}>
+                <Autocomplete
+                  options={partners}
+                  getOptionLabel={(option) => `${option.name} (${option.type.toUpperCase()})`}
+                  value={selectedPartner}
+                  onChange={(_, val) => setSelectedPartner(val)}
+                  size="small"
+                  renderInput={(params) => (
+                    <TextField {...params} label="Select Customer / Vendor" placeholder="Start typing name..."
+                      InputProps={{ ...params.InputProps, startAdornment: <><SearchIcon sx={{ fontSize: 16, color: 'text.secondary', mr: 1 }} />{params.InputProps.startAdornment}</> }} />
+                  )}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                {selectedPartner && statement.length > 0 && (
+                  <Paper variant="outlined" sx={{ px: 2, py: 1.5, display: 'inline-flex', gap: 3, borderRadius: 1.5 }}>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, fontWeight: 600 }}>CURRENT BALANCE</Typography>
+                      <Typography fontWeight={700} sx={{ fontSize: 14, color: statement[0]?.balance > 0 ? '#d32f2f' : '#2e7d32' }}>
+                        {Math.abs(statement[0]?.balance || 0).toFixed(3)} BHD
+                        <Typography component="span" sx={{ fontSize: 10, ml: 0.5, fontWeight: 400 }}>
+                          {statement[0]?.balance > 0 ? 'DUE' : 'CREDIT'}
+                        </Typography>
                       </Typography>
                     </Box>
-                  </li>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, fontWeight: 600 }}>TRANSACTIONS</Typography>
+                      <Typography fontWeight={700} sx={{ fontSize: 14 }}>{statement.length}</Typography>
+                    </Box>
+                  </Paper>
                 )}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Button
-                variant="contained"
-                startIcon={<EditIcon />}
-                disabled={!selected || role === 'viewonly'}
-                onClick={handleOpenEditDialog}
-                size="small"
-              >
-                Configure & Generate Invoice
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      {/* Selected Invoice Preview */}
-      {selected && (
-        <Card>
-          <CardContent>
-            <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 500 }}>
-              Selected Transaction Details
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Customer</Typography>
-                <Typography variant="body2">{selected.partner?.name || selected.customer_name || '-'}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Date</Typography>
-                <Typography variant="body2">{formatDate(selected.date)}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Total Amount</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: '#2e7d32' }}>
-                  BHD {Number(selected.total_amount || 0).toFixed(3)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Items</Typography>
-                <Typography variant="body2">{selected.items?.length || 0} items</Typography>
               </Grid>
             </Grid>
 
-            {selected.items && selected.items.length > 0 && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                  Line Items
-                </Typography>
-                <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 200 }}>
-                  <Table size="small" stickyHeader>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }}>Product</TableCell>
-                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Qty</TableCell>
-                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Price</TableCell>
-                        <TableCell sx={{ fontWeight: 500, fontSize: 11 }} align="right">Total</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selected.items.map((item: any, idx: number) => (
-                        <TableRow key={idx}>
-                          <TableCell sx={{ fontSize: 11 }}>{item.product?.name || item.name || '-'}</TableCell>
-                          <TableCell sx={{ fontSize: 11 }} align="right">{item.quantity}</TableCell>
-                          <TableCell sx={{ fontSize: 11 }} align="right">{Number(item.unit_price || item.price || 0).toFixed(3)}</TableCell>
-                          <TableCell sx={{ fontSize: 11 }} align="right">
-                            {(Number(item.quantity || 0) * Number(item.unit_price || item.price || 0)).toFixed(3)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+            {loadingStatement ? (
+              <Box sx={{ textAlign: 'center', py: 5 }}><CircularProgress size={28} /></Box>
+            ) : !selectedPartner ? (
+              <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                <AccountBalanceWalletIcon sx={{ fontSize: 48, mb: 1, opacity: 0.2 }} />
+                <Typography>Select a customer or vendor to view their ledger history.</Typography>
               </Box>
+            ) : statement.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                <HistoryIcon sx={{ fontSize: 48, mb: 1, opacity: 0.2 }} />
+                <Typography>No ledger entries found for this partner.</Typography>
+              </Box>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small" stickyHeader>
+                  <TableHead>
+                    <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#f8f9fa', fontWeight: 600, fontSize: 11, color: '#555', py: 1 } }}>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell align="center">Type</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                      <TableCell align="right">Running Balance</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {statement.map((entry: any) => (
+                      <TableRow key={entry.id} hover>
+                        <TableCell sx={{ fontSize: 11 }}>{formatDate(entry.date)}</TableCell>
+                        <TableCell sx={{ fontSize: 11 }}>{entry.description || '-'}</TableCell>
+                        <TableCell align="center">
+                          <Chip label={entry.type.toUpperCase()} size="small" variant="outlined"
+                            color={entry.type === 'debit' ? 'error' : 'success'}
+                            sx={{ height: 18, fontSize: '0.6rem', fontWeight: 700 }} />
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: 11, fontWeight: 500 }}>{Number(entry.amount).toFixed(3)}</TableCell>
+                        <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: entry.balance > 0 ? '#d32f2f' : '#2e7d32' }}>
+                          {Number(entry.balance).toFixed(3)} {entry.balance > 0 ? '↑ DUE' : '✓'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Edit Invoice Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <VisibilityIcon color="primary" />
-            <Typography variant="subtitle1">Configure Invoice Before Download</Typography>
           </Box>
-          <IconButton onClick={() => setEditDialogOpen(false)} size="small">
-            <CloseIcon />
-          </IconButton>
+        )}
+      </Paper>
+
+      {/* ======= TRANSACTION DETAIL DIALOG ======= */}
+      <Dialog open={detailDialogOpen} onClose={() => setDetailDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ReceiptLongIcon sx={{ fontSize: 18, color: '#1976d2' }} />
+            <Typography fontWeight={600} sx={{ fontSize: 14 }}>Transaction Details — {selectedInv ? `#${generateInvoiceNumber(selectedInv.id)}` : ''}</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {selectedInv && <Chip label={(selectedInv.payment_status || 'unpaid').toUpperCase()} size="small" color={getStatusColor(selectedInv.payment_status)} sx={{ fontWeight: 700 }} />}
+            <IconButton onClick={() => setDetailDialogOpen(false)} size="small"><CloseIcon /></IconButton>
+          </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-            Edit the following fields to customize your invoice. These changes will be reflected in the PDF.
-          </Typography>
+        <Divider />
+        {selectedInv && (() => {
+          const { total, paid, due, pct } = getAmounts(selectedInv);
+          return (
+            <DialogContent sx={{ pt: 2 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={8}>
+                  <Grid container spacing={1.5} sx={{ mb: 2 }}>
+                    {[
+                      { label: 'Customer', value: selectedInv.partner?.name || '-' },
+                      { label: 'Invoice Date', value: formatDate(selectedInv.date) },
+                      { label: 'Sales Person', value: selectedInv.sales_person || '-' },
+                      { label: 'Line Items', value: `${selectedInv.items?.length || 0} items` },
+                      { label: 'Payment Method', value: selectedInv.payment_method || '-' },
+                    ].map(r => (
+                      <Grid item xs={6} sm={4} key={r.label}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>{r.label}</Typography>
+                        <Typography fontWeight={500} sx={{ fontSize: 12 }}>{r.value}</Typography>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {selectedInv.items?.length > 0 && (
+                    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 220, borderRadius: 1 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow sx={{ '& .MuiTableCell-head': { bgcolor: '#f5f5f5', fontSize: 10, fontWeight: 700, py: 0.8 } }}>
+                            <TableCell>Product</TableCell><TableCell align="right">Qty</TableCell><TableCell align="right">Price</TableCell><TableCell align="right">Total</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {selectedInv.items.map((item: any, idx: number) => {
+                            const qty = parseFloat(item.quantity) || 0;
+                            const price = parseFloat(item.price) || 0;
+                            return (
+                              <TableRow key={idx} hover>
+                                <TableCell sx={{ fontSize: 11 }}>{item.product?.name || '-'}</TableCell>
+                                <TableCell align="right" sx={{ fontSize: 11 }}>{qty}</TableCell>
+                                <TableCell align="right" sx={{ fontSize: 11 }}>{price.toFixed(3)}</TableCell>
+                                <TableCell align="right" sx={{ fontSize: 11, fontWeight: 500 }}>{(qty * price).toFixed(3)}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
+                    <Typography variant="caption" fontWeight={700} color="primary" sx={{ display: 'block', mb: 1.5, fontSize: 10 }}>FINANCIAL SUMMARY</Typography>
+                    {[
+                      { label: 'Invoice Total', value: fBHD(total), color: '#1a1a1a' },
+                      { label: 'Amount Paid', value: `+ ${fBHD(paid)}`, color: '#2e7d32' },
+                      { label: 'Balance Due', value: due > 0 ? `− ${fBHD(due)}` : '✓ Fully Settled', color: due > 0 ? '#d32f2f' : '#2e7d32' },
+                    ].map(r => (
+                      <Box key={r.label} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.75 }}>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{r.label}</Typography>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: r.color }}>{r.value}</Typography>
+                      </Box>
+                    ))}
+                    <Divider sx={{ my: 1 }} />
+                    <Box sx={{ mb: 1.5 }}>
+                      <LinearProgress variant="determinate" value={pct} sx={{ height: 6, borderRadius: 3, bgcolor: '#e0e0e0', '& .MuiLinearProgress-bar': { bgcolor: pct >= 100 ? '#4caf50' : pct > 0 ? '#ff9800' : '#ef5350' } }} />
+                      <Typography sx={{ fontSize: 9, textAlign: 'right', mt: 0.5, color: 'text.secondary' }}>{pct.toFixed(0)}% paid</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button variant="outlined" size="small" fullWidth startIcon={<PictureAsPdfIcon />}
+                        onClick={() => { setDetailDialogOpen(false); handleOpenPdfDialog(selectedInv); }} disabled={role === 'viewonly'} sx={{ fontSize: 11 }}>
+                        PDF
+                      </Button>
+                      {due > 0 && (
+                        <Button variant="contained" size="small" fullWidth startIcon={<PaymentIcon />} color="success"
+                          onClick={() => { setDetailDialogOpen(false); handleOpenPayment(selectedInv); }} disabled={role === 'viewonly'} sx={{ fontSize: 11 }}>
+                          Pay
+                        </Button>
+                      )}
+                    </Box>
+                  </Paper>
+                </Grid>
+              </Grid>
+            </DialogContent>
+          );
+        })()}
+        <DialogActions sx={{ px: 3, py: 1 }}><Button onClick={() => setDetailDialogOpen(false)} size="small">Close</Button></DialogActions>
+      </Dialog>
 
+      {/* ======= PDF CONFIG DIALOG ======= */}
+      <Dialog open={pdfDialogOpen} onClose={() => setPdfDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PictureAsPdfIcon color="primary" sx={{ fontSize: 18 }} />
+            <Typography fontWeight={600} sx={{ fontSize: 14 }}>Configure Invoice PDF</Typography>
+          </Box>
+          <IconButton onClick={() => setPdfDialogOpen(false)} size="small"><CloseIcon /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          {selectedInv && (() => {
+            const { total, paid, due } = getAmounts(selectedInv);
+            return (
+              <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: '#f8f9fa', borderRadius: 1.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Generating invoice for</Typography>
+                    <Typography fontWeight={600} sx={{ fontSize: 13 }}>{selectedInv.partner?.name || 'Unknown'}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                      {formatDate(selectedInv.date)} · Total: {fBHD(total)} · Paid: {fBHD(paid)} · Due: {fBHD(due)}
+                    </Typography>
+                  </Box>
+                  <Chip label={(selectedInv.payment_status || 'unpaid').toUpperCase()} size="small" color={getStatusColor(selectedInv.payment_status)} sx={{ fontWeight: 700 }} />
+                </Box>
+              </Paper>
+            );
+          })()}
           <Grid container spacing={2}>
-            {/* Invoice Number */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Invoice Number"
-                value={editData.invoiceNumber}
-                onChange={(e) => setEditData({ ...editData, invoiceNumber: e.target.value })}
-                size="small"
-                helperText="Format: JOT/YYYY/XXX"
-                disabled={role === 'viewonly'}
-              />
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Invoice Number" value={editData.invoiceNumber} onChange={e => setEditData({ ...editData, invoiceNumber: e.target.value })} size="small" helperText="Format: JOT/YYYY/XXX" disabled={role === 'viewonly'} />
             </Grid>
-
-            {/* Payment Terms */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small">
                 <InputLabel>Payment Terms</InputLabel>
-                <Select
-                  value={editData.paymentTerms}
-                  label="Payment Terms"
-                  onChange={(e) => setEditData({ ...editData, paymentTerms: e.target.value })}
-                  disabled={role === 'viewonly'}
-                >
-                  {PAYMENT_TERMS_OPTIONS.map(term => (
-                    <MenuItem key={term} value={term}>{term}</MenuItem>
-                  ))}
+                <Select value={editData.paymentTerms} label="Payment Terms" onChange={e => setEditData({ ...editData, paymentTerms: e.target.value })} disabled={role === 'viewonly'}>
+                  {PAYMENT_TERMS_OPTIONS.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
-
-            {/* Due Date */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Due Date"
-                type="date"
-                value={editData.dueDate}
-                onChange={(e) => setEditData({ ...editData, dueDate: e.target.value })}
-                size="small"
-                InputLabelProps={{ shrink: true }}
-                disabled={role === 'viewonly'}
-              />
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Due Date" type="date" value={editData.dueDate} onChange={e => setEditData({ ...editData, dueDate: e.target.value })} size="small" InputLabelProps={{ shrink: true }} disabled={role === 'viewonly'} />
             </Grid>
-
-            {/* Sales Person */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Sales Person"
-                value={editData.salesPerson}
-                onChange={(e) => setEditData({ ...editData, salesPerson: e.target.value })}
-                size="small"
-                disabled={role === 'viewonly'}
-              />
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Sales Person" value={editData.salesPerson} onChange={e => setEditData({ ...editData, salesPerson: e.target.value })} size="small" disabled={role === 'viewonly'} />
             </Grid>
           </Grid>
-
-          <Divider sx={{ my: 2 }} />
-
-          {/* Preview Summary */}
-          <Typography variant="subtitle2" sx={{ mb: 1.5 }}>Invoice Preview Summary</Typography>
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Invoice No</Typography>
-                <Typography variant="body2" fontWeight={500}>{editData.invoiceNumber}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Payment Terms</Typography>
-                <Typography variant="body2" fontWeight={500}>{editData.paymentTerms}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Due Date</Typography>
-                <Typography variant="body2" fontWeight={500}>
-                  {editData.dueDate ? new Date(editData.dueDate).toLocaleDateString('en-GB') : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Sales Person</Typography>
-                <Typography variant="body2" fontWeight={500}>{editData.salesPerson}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Customer</Typography>
-                <Typography variant="body2">{selected?.partner?.name || selected?.customer_name || '-'}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Invoice Date</Typography>
-                <Typography variant="body2">{formatDate(selected?.date)}</Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Total Amount</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 500, color: '#2e7d32' }}>
-                  BHD {Number(selected?.total_amount || 0).toFixed(3)}
-                </Typography>
-              </Grid>
-              <Grid item xs={6} md={3}>
-                <Typography variant="caption" color="text.secondary">Items Count</Typography>
-                <Typography variant="body2">{selected?.items?.length || 0} items</Typography>
-              </Grid>
-            </Grid>
-          </Paper>
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setEditDialogOpen(false)} color="inherit" size="small">
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={downloading ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfIcon />}
-            onClick={handleDownloadPDF}
-            disabled={downloading || role === 'viewonly'}
-            size="small"
-          >
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setPdfDialogOpen(false)} color="inherit" size="small">Cancel</Button>
+          <Button variant="contained" startIcon={downloading ? <CircularProgress size={14} color="inherit" /> : <PictureAsPdfIcon />} onClick={handleDownloadPDF} disabled={downloading || role === 'viewonly'} size="small">
             {downloading ? 'Generating...' : 'Download PDF'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Paper
-          elevation={6}
-          sx={{
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            backgroundColor: snackbar.severity === 'success' ? '#4caf50' :
-              snackbar.severity === 'error' ? '#f44336' :
-                snackbar.severity === 'warning' ? '#ff9800' : '#2196f3',
-            color: 'white'
-          }}
-        >
-          {snackbar.severity === 'success' && <CheckCircleIcon fontSize="small" />}
-          {snackbar.severity === 'error' && <ErrorIcon fontSize="small" />}
+      {/* ======= RECORD PAYMENT DIALOG ======= */}
+      <Dialog open={paymentDialogOpen} onClose={() => !submitting && setPaymentDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><PaymentIcon color="success" sx={{ fontSize: 18 }} /><Typography fontWeight={600} sx={{ fontSize: 14 }}>Record Payment</Typography></Box>
+          <IconButton size="small" onClick={() => setPaymentDialogOpen(false)} disabled={submitting}><CloseIcon /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          {paymentTx && (() => {
+            const { total, paid, due } = getAmounts(paymentTx);
+            return (
+              <>
+                <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: '#f8f9fa', borderRadius: 1.5 }}>
+                  <Grid container spacing={1}>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Customer</Typography><Typography fontWeight={600} sx={{ fontSize: 12 }}>{paymentTx.partner?.name || '-'}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Invoice Total</Typography><Typography fontWeight={600} sx={{ fontSize: 12 }}>{fBHD(total)}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Already Paid</Typography><Typography fontWeight={600} sx={{ fontSize: 12, color: '#2e7d32' }}>{fBHD(paid)}</Typography></Grid>
+                    <Grid item xs={6}><Typography variant="caption" color="error" sx={{ fontSize: 10 }}>Remaining Due</Typography><Typography fontWeight={700} sx={{ fontSize: 12, color: '#d32f2f' }}>{fBHD(due)}</Typography></Grid>
+                  </Grid>
+                </Paper>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField label="Payment Amount (BHD)" type="number" fullWidth value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} size="small" autoFocus inputProps={{ min: 0.001, max: due, step: 0.001 }} helperText={`Max due: ${fBHD(due)}`} />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField select label="Payment Method" fullWidth value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} size="small">
+                      <MenuItem value="Cash">Cash</MenuItem>
+                      <MenuItem value="Bank Transfer">Bank Transfer</MenuItem>
+                      <MenuItem value="Cheque">Cheque</MenuItem>
+                      <MenuItem value="Card">Credit/Debit Card</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField label="Notes (optional)" multiline rows={2} fullWidth value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)} size="small" placeholder="E.g. Received via cheque #1234..." />
+                  </Grid>
+                </Grid>
+              </>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setPaymentDialogOpen(false)} disabled={submitting} size="small">Cancel</Button>
+          <Button variant="contained" color="success" onClick={handleRecordPayment} disabled={submitting || !paymentAmount || parseFloat(paymentAmount) <= 0} size="small"
+            startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <CheckCircleIcon />}>
+            {submitting ? 'Recording...' : 'Confirm Payment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
+        <Paper elevation={6} sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1, bgcolor: snackbar.severity === 'success' ? '#4caf50' : '#f44336', color: 'white' }}>
+          {snackbar.severity === 'success' ? <CheckCircleIcon fontSize="small" /> : <ErrorIcon fontSize="small" />}
           <Typography variant="caption">{snackbar.message}</Typography>
-          <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}>
-            <CloseIcon fontSize="small" />
-          </IconButton>
+          <IconButton size="small" onClick={() => setSnackbar({ ...snackbar, open: false })} sx={{ color: 'white' }}><CloseIcon fontSize="small" /></IconButton>
         </Paper>
       </Snackbar>
     </Box>

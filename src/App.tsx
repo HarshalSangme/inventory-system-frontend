@@ -24,8 +24,9 @@ function App() {
             <Route path="vendors" element={<Partners type="vendor" />} />
             <Route path="sales" element={<Transactions type="sale" />} />
             <Route path="purchases" element={<Transactions type="purchase" />} />
-            <Route path="reports" element={<Reports />} />
+            <Route path="accounts" element={<Invoices />} />
             <Route path="invoices" element={<Invoices />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Route>
