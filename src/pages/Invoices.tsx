@@ -244,9 +244,9 @@ export default function Accounts() {
       <Grid container spacing={1.5} sx={{ mb: 2.5 }}>
         <Grid item xs={6} sm={2.4}><KpiCard title="Total Receivables" value={fBHD(accountSummary.total_receivables)} sub="Owed by customers" icon={TrendingUpIcon} color="#d32f2f" /></Grid>
         <Grid item xs={6} sm={2.4}><KpiCard title="Total Payables" value={fBHD(accountSummary.total_payables)} sub="Owed to vendors" icon={TrendingDownIcon} color="#ed6c02" /></Grid>
-        <Grid item xs={6} sm={2.4}><KpiCard title="Unpaid Invoices" value={kpi.unpaidCount} sub="Action required" icon={MoneyOffIcon} color="#c62828" /></Grid>
-        <Grid item xs={6} sm={2.4}><KpiCard title="Partial Invoices" value={kpi.partialCount} sub="Partially settled" icon={ReceiptLongIcon} color="#f9a825" /></Grid>
-        <Grid item xs={12} sm={2.4}><KpiCard title="Outstanding Total" value={fBHD(kpi.totalOutstanding)} sub="Net amount owed" icon={AccountBalanceWalletIcon} color="#7b1fa2" /></Grid>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Unpaid Invoices" value={kpi.unpaid} sub="Action required" icon={MoneyOffIcon} color="#c62828" /></Grid>
+        <Grid item xs={6} sm={2.4}><KpiCard title="Partial Invoices" value={kpi.partial} sub="Partially settled" icon={ReceiptLongIcon} color="#f9a825" /></Grid>
+        <Grid item xs={12} sm={2.4}><KpiCard title="Outstanding Total" value={fBHD(accountSummary.total_receivables + accountSummary.total_payables)} sub="Net amount owed" icon={AccountBalanceWalletIcon} color="#7b1fa2" /></Grid>
       </Grid>
 
       {/* Main Page Tabs */}
