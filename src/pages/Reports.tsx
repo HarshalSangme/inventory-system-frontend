@@ -306,6 +306,7 @@ export default function Reports() {
                         pageSize={pageSize}
                         onPageChange={setPage}
                         onPageSizeChange={setPageSize}
+                        searchTerm={debouncedSearch}
                     />
                 );
             case 'purchase':
@@ -319,6 +320,7 @@ export default function Reports() {
                         pageSize={pageSize}
                         onPageChange={setPage}
                         onPageSizeChange={setPageSize}
+                        searchTerm={debouncedSearch}
                     />
                 );
             case 'profit':
@@ -697,7 +699,8 @@ function SalesReportPreview({
     page, 
     pageSize, 
     onPageChange, 
-    onPageSizeChange 
+    onPageSizeChange,
+    searchTerm
 }: {
     transactions: Transaction[],
     partners: Partner[],
@@ -706,7 +709,8 @@ function SalesReportPreview({
     page: number,
     pageSize: number,
     onPageChange: (page: number) => void,
-    onPageSizeChange: (pageSize: number) => void
+    onPageSizeChange: (pageSize: number) => void,
+    searchTerm?: string
 }) {
     const partnerMap = useMemo(() => Object.fromEntries(partners.map(p => [p.id, p.name])), [partners]);
     
@@ -732,6 +736,13 @@ function SalesReportPreview({
         const flattened: any[] = [];
         transactions.forEach((t) => {
             t.items.forEach((item, iIdx) => {
+                // If search is active, only show items matching name or SKU
+                if (searchTerm && searchTerm.length > 2) {
+                    const skuMatch = item.product?.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+                    const nameMatch = item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                    if (!skuMatch && !nameMatch) return;
+                }
+                
                 flattened.push({
                     id: `${t.id}-${item.product_id}-${iIdx}`,
                     transactionId: t.id,
@@ -747,7 +758,7 @@ function SalesReportPreview({
             });
         });
         return flattened;
-    }, [transactions, partnerMap]);
+    }, [transactions, partnerMap, searchTerm]);
 
     const columns: GridColDef[] = [
         { field: 'date', headerName: 'Date', width: 140, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
@@ -850,7 +861,8 @@ function PurchaseReportPreview({
     page, 
     pageSize, 
     onPageChange, 
-    onPageSizeChange 
+    onPageSizeChange,
+    searchTerm
 }: { 
     transactions: Transaction[], 
     partners: Partner[], 
@@ -859,10 +871,10 @@ function PurchaseReportPreview({
     page: number,
     pageSize: number,
     onPageChange: (page: number) => void,
-    onPageSizeChange: (pageSize: number) => void
+    onPageSizeChange: (pageSize: number) => void,
+    searchTerm?: string
 }) {
     const partnerMap = useMemo(() => Object.fromEntries(partners.map(p => [p.id, p.name])), [partners]);
-    
     const totalCost = useMemo(() => transactions.reduce((sum, t) => sum + t.total_amount, 0), [transactions]);
     // Remove avgPurchaseValue if unused
 
@@ -882,12 +894,40 @@ function PurchaseReportPreview({
             }));
     }, [transactions, partnerMap]);
 
+    const rows = useMemo(() => {
+        const flattened: any[] = [];
+        transactions.forEach((t) => {
+            t.items.forEach((item, iIdx) => {
+                // If search is active, only show items matching name or SKU
+                if (searchTerm && searchTerm.length > 2) {
+                    const skuMatch = item.product?.sku?.toLowerCase().includes(searchTerm.toLowerCase());
+                    const nameMatch = item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                    if (!skuMatch && !nameMatch) return;
+                }
+
+                flattened.push({
+                    id: `${t.id}-${item.product_id}-${iIdx}`,
+                    transactionId: t.id,
+                    date: t.date,
+                    vendor: partnerMap[t.partner_id] || 'Unknown',
+                    sku: item.product?.sku || '-',
+                    itemName: item.product?.name?.toUpperCase() || '-',
+                    amount: item.price * item.quantity,
+                    paymentMethod: t.payment_method || 'Cash',
+                    status: 'Completed'
+                });
+            });
+        });
+        return flattened;
+    }, [transactions, partnerMap, searchTerm]);
+
     const columns: GridColDef[] = [
         { field: 'date', headerName: 'Date', width: 140, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
-        { field: 'vendor', headerName: 'Vendor', flex: 1, valueGetter: (params) => partnerMap[params.row.partner_id] || 'Unknown' },
-        { field: 'total_amount', headerName: 'Total Amount', width: 150, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
-        { field: 'vat_percent', headerName: 'VAT %', width: 100, type: 'number' },
-        { field: 'items_count', headerName: 'Items', width: 100, valueGetter: (params) => params.row.items?.length || 0 },
+        { field: 'vendor', headerName: 'Vendor', flex: 1 },
+        { field: 'sku', headerName: 'SKU', width: 120 },
+        { field: 'itemName', headerName: 'Product', flex: 1.5 },
+        { field: 'amount', headerName: 'Amount', width: 110, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'paymentMethod', headerName: 'Method', width: 110 },
     ];
 
     return (
@@ -942,7 +982,7 @@ function PurchaseReportPreview({
 
             <Card sx={{ flexGrow: 1, minHeight: 400, bgcolor: 'white' }}>
                 <DataGrid
-                    rows={transactions}
+                    rows={rows}
                     columns={columns}
                     loading={loading}
                     rowCount={total}

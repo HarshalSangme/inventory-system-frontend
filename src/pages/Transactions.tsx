@@ -224,8 +224,33 @@ export default function Transactions({ type }: TransactionsProps) {
                                         { field: 'id', headerName: 'Entry No.', width: 120, valueGetter: (params: any) => type === 'purchase' ? `PUR-${params.row.id}` : `SAL-${params.row.id}` },
                                         { field: 'date', headerName: 'Date', width: 110, valueGetter: (params: any) => new Date(params.row.date).toLocaleDateString() },
                                         ...(type === 'sale' ? [
-                                            { field: 'sku', headerName: 'SKU Code', width: 120, valueGetter: (params: any) => params.row.items?.[0]?.product?.sku || '-' },
-                                            { field: 'itemName', headerName: 'Item Name', flex: 1, minWidth: 150, valueGetter: (params: any) => params.row.items?.[0]?.product?.name || '-' },
+                                            { 
+                                                field: 'sku', 
+                                                headerName: 'SKU Code', 
+                                                width: 120, 
+                                                valueGetter: (params: any) => {
+                                                    const items = params.row.items || [];
+                                                    if (debouncedSearch && debouncedSearch.length > 2) {
+                                                        const match = items.find((i: any) => i.product?.sku?.toLowerCase().includes(debouncedSearch.toLowerCase()));
+                                                        if (match) return match.product?.sku;
+                                                    }
+                                                    return items[0]?.product?.sku || '-';
+                                                } 
+                                            },
+                                            { 
+                                                field: 'itemName', 
+                                                headerName: 'Item Name', 
+                                                flex: 1, 
+                                                minWidth: 150, 
+                                                valueGetter: (params: any) => {
+                                                    const items = params.row.items || [];
+                                                    if (debouncedSearch && debouncedSearch.length > 2) {
+                                                        const match = items.find((i: any) => i.product?.name?.toLowerCase().includes(debouncedSearch.toLowerCase()) || i.product?.sku?.toLowerCase().includes(debouncedSearch.toLowerCase()));
+                                                        if (match) return match.product?.name;
+                                                    }
+                                                    return (items[0]?.product?.name || '-') + (items.length > 1 ? ` (+${items.length - 1} more)` : '');
+                                                } 
+                                            },
                                         ] : []),
                                         { field: 'partner', headerName: type === 'purchase' ? 'Vendor Name' : 'Customer Name', flex: 1, minWidth: 150, valueGetter: (params: any) => {
                                             if (!params || !params.row) return "-";
