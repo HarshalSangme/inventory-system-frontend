@@ -8,6 +8,7 @@ export const deleteTransaction = async (id: number) => {
     return response.data;
 };
 import api from './api';
+import type { Product } from './productService';
 
 export interface TransactionItem {
     product_id: number;
@@ -16,11 +17,7 @@ export interface TransactionItem {
     discount: number;
     vat_percent?: number;
     sku?: string; // Allow user-typed SKU to be sent to backend
-    product?: {
-        name: string;
-        sku: string;
-        cost_price?: number;
-    };
+    product?: Product;
 }
 
 export interface TransactionCreate {

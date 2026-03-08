@@ -1,5 +1,5 @@
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useUser } from '../context/UserContext';
 import { useSnackbar } from '../context/SnackbarContext';
 import AddIcon from '@mui/icons-material/Add';
@@ -51,15 +51,17 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
     const [debouncedProductSearch, setDebouncedProductSearch] = useState('');
     const [selectedPartnerId, setSelectedPartnerId] = useState<number | ''>(editData ? editData.partner_id : '');
     const [paymentMethod, setPaymentMethod] = useState<string>(editData?.payment_method || 'Cash');
-    const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map((item: TransactionItem) => ({
+    const [items, setItems] = useState<TransactionItem[]>(editData ? editData.items.map((item: any) => ({
         product_id: item.product_id,
         quantity: item.quantity,
         price: item.price,
         discount: item.discount || 0,
-        vat_percent: item.vat_percent ?? 0
+        vat_percent: item.vat_percent ?? 0,
+        product: item.product
     })) : []);
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(false);
+    const isFirstMount = useRef(true);
 
     // Debounce product search
     useEffect(() => {
@@ -94,18 +96,20 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
 
     // Update edit data if it changes
     useEffect(() => {
-        if (editData && products.length > 0) {
+        if (editData && isFirstMount.current) {
+            isFirstMount.current = false;
             setSelectedPartnerId(editData.partner_id);
-            setItems(editData.items.map((item: TransactionItem) => ({
+            setItems(editData.items.map((item: any) => ({
                 product_id: item.product_id,
                 quantity: item.quantity,
                 price: item.price,
                 discount: item.discount || 0,
-                vat_percent: item.vat_percent ?? 0
+                vat_percent: item.vat_percent ?? 0,
+                product: item.product // Ensure product object is preserved
             })));
             setPaymentMethod(editData.payment_method || 'Cash');
         }
-    }, [editData, products]);
+    }, [editData]);
 
     const updateVat = (index: number, value: number) => {
         if (role === 'viewonly') return;
@@ -127,12 +131,12 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         const newItems = [...items];
         if (field === 'quantity' && type === 'sale') {
             const currentItem = newItems[index];
-            const product = products.find(p => p.id === currentItem.product_id);
+            const product = (currentItem.product || products.find(p => p.id === currentItem.product_id)) as Product | undefined;
             if (product) {
                 const otherRowsUsage = items.reduce((sum, item, i) => {
                     return (i !== index && item.product_id === currentItem.product_id) ? sum + item.quantity : sum;
                 }, 0);
-                const availableStock = product.stock_quantity - otherRowsUsage;
+                const availableStock = (product.stock_quantity ?? 0) - otherRowsUsage;
                 if (value > availableStock) {
                     showSnackbar(`Cannot add ${value}. Only ${availableStock} remaining for this product.`, 'warning');
                     return;
@@ -176,9 +180,9 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         // Frontend price validation for sales
         if (type === 'sale') {
             for (const item of items) {
-                const product = products.find(p => p.id === item.product_id);
-                if (product && item.price < 1.4 * product.cost_price) {
-                    showSnackbar(`Selling price (${item.price}) must be at least 40% greater than cost price (${product.cost_price}) for product '${product.name}'. Minimum allowed: ${(1.4 * product.cost_price).toFixed(2)}`, 'error');
+                const product = (item.product || products.find(p => p.id === item.product_id)) as Product | undefined;
+                if (product && item.price < 1.4 * (product.cost_price ?? 0)) {
+                    showSnackbar(`Selling price (${item.price}) must be at least 40% greater than cost price (${product.cost_price ?? 0}) for product '${product.name}'. Minimum allowed: ${(1.4 * (product.cost_price ?? 0)).toFixed(2)}`, 'error');
                     return;
                 }
             }
@@ -320,7 +324,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                     </TableHead>
                     <TableBody>
                         {items.map((item, index) => {
-                            const selectedProduct = products.find(p => p.id === item.product_id);
+                            const selectedProduct = item.product || products.find(p => p.id === item.product_id);
                             const skuFieldValue = typeof item.sku === 'string' ? item.sku : (selectedProduct?.sku || '');
                             const itemAmtAfterDisc = getItemAmtAfterDisc(item);
                             const itemNet = getItemNet(item);
@@ -338,22 +342,33 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             options={products}
                                             loading={loading}
                                             getOptionLabel={(option) => option.name || ""}
-                                            value={products.find(p => p.id === item.product_id) || null}
-                                            onInputChange={(_, newInputValue) => {
-                                                setProductSearch(newInputValue);
+                                            value={item.product || null}
+                                            onInputChange={(_, newInputValue, reason) => {
+                                                if (reason === 'input') {
+                                                    setProductSearch(newInputValue);
+                                                }
                                             }}
                                             onChange={(_, selectedProduct) => {
-                                                if (role === 'viewonly' || !selectedProduct) return;
+                                                if (role === 'viewonly') return;
                                                 const prod = selectedProduct;
                                                 const newItems = [...items];
-                                                newItems[index] = {
-                                                    ...newItems[index],
-                                                    product_id: prod.id,
-                                                    price: type === 'sale' ? +(1.4 * (prod.cost_price || 0)).toFixed(2) : prod.price || 0,
-                                                    quantity: 1,
-                                                    discount: 0,
-                                                    sku: prod.sku || ""
-                                                };
+                                                if (!prod) {
+                                                    newItems[index] = {
+                                                        ...newItems[index],
+                                                        product_id: 0,
+                                                        product: undefined
+                                                    };
+                                                } else {
+                                                    newItems[index] = {
+                                                        ...newItems[index],
+                                                        product_id: prod.id,
+                                                        product: prod as Product, // Store full product object
+                                                        price: type === 'sale' ? +(1.4 * (prod.cost_price || 0)).toFixed(2) : (prod as any).price || 0,
+                                                        quantity: 1,
+                                                        discount: 0,
+                                                        sku: prod.sku || ""
+                                                    };
+                                                }
                                                 setItems(newItems);
                                             }}
                                             renderInput={params => (
@@ -374,7 +389,23 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                   }}
                                                 />
                                             )}
-                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            isOptionEqualToValue={(option, value) => (option as any).id === (value as any).id}
+                                            renderOption={(props, selectedProduct) => {
+                                                const otherRowsUsage = items.reduce((sum, i, idx) => {
+                                                    return (idx !== index && i.product_id === (selectedProduct as any).id) ? sum + i.quantity : sum;
+                                                }, 0);
+                                                const remaining = ((selectedProduct as any).stock_quantity ?? 0) - otherRowsUsage;
+                                                return (
+                                                    <Box component="li" {...props} key={(selectedProduct as any).id}>
+                                                        <Box>
+                                                            <Typography variant="body1">{(selectedProduct as any).name}</Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                SKU: {(selectedProduct as any).sku} | {remaining} left
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
+                                                );
+                                            }}
                                             disabled={role === 'viewonly'}
                                         />
                                         {selectedProduct && type === 'sale' && (() => {
@@ -414,6 +445,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                     newItems[index] = {
                                                         ...newItems[index],
                                                         product_id: found.id,
+                                                        product: found, // Store full product object
                                                         price: type === 'sale' ? +(1.4 * (found.cost_price || 0)).toFixed(2) : found.price || 0,
                                                         quantity: 1,
                                                         discount: 0
@@ -424,10 +456,22 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             disabled={role === 'viewonly'}
                                         />
                                         {selectedProduct && type === 'purchase' && (
-                                            <div style={{ fontSize: '0.85em', color: '#1976d2', marginTop: 2, lineHeight: 1.2 }}>
-                                                <span>Closing Stock: <b>{selectedProduct.stock_quantity}</b></span><br />
-                                                <span>After Purchase: <b>{selectedProduct.stock_quantity + (item.quantity || 0)}</b></span>
-                                            </div>
+                                            <Tooltip
+                                                title={selectedProduct ? (
+                                                    <Box sx={{ p: 0.5 }}>
+                                                        <span>Closing Stock: <b>{(selectedProduct as any).stock_quantity ?? 0}</b></span><br />
+                                                        <span>After Purchase: <b>{((selectedProduct as any).stock_quantity ?? 0) + (item.quantity || 0)}</b></span>
+                                                    </Box>
+                                                ) : ""}
+                                            >
+                                                <Chip
+                                                    size="small"
+                                                    label={`${selectedProduct.stock_quantity} left`}
+                                                    color={selectedProduct.stock_quantity > 5 ? 'success' : selectedProduct.stock_quantity > 0 ? 'warning' : 'error'}
+                                                    variant="outlined"
+                                                    sx={{ minWidth: 65, fontSize: '0.7rem', mt: 1 }}
+                                                />
+                                            </Tooltip>
                                         )}
                                     </TableCell>
                                     <TableCell align="right">
@@ -446,12 +490,12 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                         <TextField
                                             type="number"
                                             inputProps={{ min: (() => {
-                                                const prod = products.find(p => p.id === item.product_id);
+                                                const prod = item.product || products.find(p => p.id === item.product_id);
                                                 return type === 'sale' && prod ? (1.4 * (prod.cost_price || 0)).toFixed(3) : 0;
                                             })(), step: '0.001', style: { textAlign: 'right' } }}
                                             value={item.price}
                                             onChange={e => {
-                                                const prod = products.find(p => p.id === item.product_id);
+                                                const prod = item.product || products.find(p => p.id === item.product_id);
                                                 let val = Number(e.target.value);
                                                 if (type === 'sale' && prod) {
                                                     const minPrice = +(1.4 * (prod.cost_price || 0)).toFixed(3);
@@ -469,7 +513,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                 }
                                             }}
                                             helperText={(() => {
-                                                const prod = products.find(p => p.id === item.product_id);
+                                                const prod = item.product || products.find(p => p.id === item.product_id);
                                                 return prod && type === 'sale' ? `Recommended Selling Price: ${(1.4 * (prod.cost_price || 0)).toFixed(2)}` : '';
                                             })()}
                                         />

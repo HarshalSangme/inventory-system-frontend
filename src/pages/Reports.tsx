@@ -1,12 +1,10 @@
-import { useState, useEffect } from 'react';
-import Checkbox from '@mui/material/Checkbox';
+import { useState, useEffect, useMemo } from 'react';
 import { useUser } from '../context/UserContext';
 import {
     Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer,
     TableHead, TableRow, CircularProgress, TextField, InputAdornment
 } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -16,10 +14,14 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import SearchIcon from '@mui/icons-material/Search';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
-import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { getProducts, type Product } from '../services/productService';
 import { getTransactions, type Transaction } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
+import { exportReport } from '../services/reportService';
+import { DataGrid } from '@mui/x-data-grid';
+import type { GridColDef } from '@mui/x-data-grid';
 
 type ReportType = 'stock' | 'sales' | 'purchase' | 'profit';
 
@@ -37,13 +39,14 @@ export default function Reports() {
     const [currentReport, setCurrentReport] = useState<ReportType | null>(null);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    // Date range state for sales report
     const [fromDate, setFromDate] = useState<string | null>(null);
     const [toDate, setToDate] = useState<string | null>(null);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
 
-    // Selection state for sales report
-    const [selectedSales, setSelectedSales] = useState<number[]>([]);
-    const [debouncedSearch, setDebouncedSearch] = useState(searchTerm);
+    // Pagination State
+    const [page, setPage] = useState(0);
+    const [pageSize, setPageSize] = useState(25);
+    const [total, setTotal] = useState(0);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -54,13 +57,12 @@ export default function Reports() {
 
     // ...existing code...
 
-    // Reload sales data when date range changes in preview
+    // Reload data when filters or pagination changes
     useEffect(() => {
-        if (previewOpen && currentReport === 'sales') {
+        if (previewOpen && currentReport) {
             loadData();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromDate, toDate]);
+    }, [previewOpen, currentReport, page, pageSize, debouncedSearch, fromDate, toDate]);
 
     // Data States
     const [products, setProducts] = useState<Product[]>([]);
@@ -77,21 +79,43 @@ export default function Reports() {
     const loadData = async () => {
         try {
             setLoading(true);
-            let transactionsData;
-            // Format dates as YYYY-MM-DD for backend
+            const skip = page * pageSize;
+            const limit = pageSize;
             const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
-            if (currentReport === 'sales' && (fromDate || toDate)) {
-                transactionsData = await getTransactions(0, 1000, undefined, formatDate(fromDate) || undefined, formatDate(toDate) || undefined);
-            } else {
-                transactionsData = await getTransactions(0, 1000);
+            const fDate = formatDate(fromDate);
+            const tDate = formatDate(toDate);
+
+            let productsData: any;
+            let transactionsData: any;
+            let partnersData: any;
+
+            if (currentReport === 'sales') {
+                transactionsData = await getTransactions(skip, limit, 'sale', fDate, tDate, debouncedSearch);
+                setTransactions(transactionsData.data);
+                setTotal(transactionsData.total);
+            } else if (currentReport === 'purchase') {
+                transactionsData = await getTransactions(skip, limit, 'purchase', fDate, tDate, debouncedSearch);
+                setTransactions(transactionsData.data);
+                setTotal(transactionsData.total);
+            } else if (currentReport === 'stock') {
+                productsData = await getProducts(skip, limit, debouncedSearch);
+                setProducts(productsData.data);
+                setTotal(productsData.total);
+            } else if (currentReport === 'profit') {
+                [productsData, transactionsData] = await Promise.all([
+                    getProducts(0, 1000),
+                    getTransactions(0, 1000, undefined, fDate, tDate)
+                ]);
+                setProducts(productsData.data);
+                setTransactions(transactionsData.data);
+                setTotal(1);
             }
-            const [productsData, partnersData] = await Promise.all([
-                getProducts(0, 1000),
-                getPartners(0, 1000)
-            ]);
-            setProducts(productsData.data);
-            setTransactions(transactionsData.data);
-            setPartners(partnersData.data);
+
+            // Always ensure partners are loaded for mapping
+            if (partners.length === 0) {
+                partnersData = await getPartners(0, 1000);
+                setPartners(partnersData.data);
+            }
         } catch (error) {
             console.error('Failed to load data:', error);
             setSnackbar({ open: true, message: 'Failed to load report data', severity: 'error' });
@@ -102,103 +126,44 @@ export default function Reports() {
 
     const handlePreview = async (reportId: ReportType) => {
         setCurrentReport(reportId);
+        setPage(0); // Reset pagination
         setPreviewOpen(true);
         setSearchTerm('');
         // Reset date range when opening preview
         setFromDate(null);
         setToDate(null);
-        await loadData();
     };
 
-    const handleExport = async (reportId: ReportType) => {
+    const handleExport = async (reportId: ReportType, format: 'excel' | 'csv' = 'csv') => {
         const report = reports.find(r => r.id === reportId);
-        let data = getReportData(reportId);
-
-        // For sales report, fetch filtered transactions if date range is set
-        if (reportId === 'sales') {
+        try {
             setLoading(true);
-            try {
-                const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
-                const filteredTransactions = await getTransactions(0, 10000, undefined, formatDate(fromDate) || undefined, formatDate(toDate) || undefined);
-                setTransactions(filteredTransactions.data); // update state for preview consistency
-                // Only include selected sales if any are selected
-                let exportSales = filteredTransactions.data.filter(t => t.type === 'sale');
-                if (selectedSales.length > 0) {
-                    exportSales = exportSales.filter(t => selectedSales.includes(t.id));
-                }
-                const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-                data = exportSales.map((t, idx) => {
-                    let itemName = '-';
-                    let skuCode = '-';
-                    if (t.items && t.items.length > 0) {
-                        const item = t.items[0];
-                        // Always use item.product.sku for SKU Code
-                        skuCode = (item.product && item.product.sku) ? item.product.sku : '-';
-                        itemName = (item.product && item.product.name) ? item.product.name : '-';
-                    }
-                    return {
-                        'Sr. No.': idx + 1,
-                        'Date': new Date(t.date).toLocaleDateString(),
-                        'Customer': partnerMap[t.partner_id] || 'Unknown',
-                        'SKU Code': skuCode,
-                        'Item Name': itemName,
-                        'Amount': t.total_amount.toFixed(2),
-                        'Payment Method': t.payment_method || '-',
-                        'Sales Person': t.sales_person || '-',
-                        'Status': 'Completed',
-                    };
-                });
-            } catch (error) {
-                setSnackbar({ open: true, message: 'Failed to export filtered sales data', severity: 'error' });
-                setLoading(false);
-                return;
-            }
+            const formatDate = (d: string | null) => d ? new Date(d).toISOString().slice(0, 10) : undefined;
+            const blob = await exportReport(
+                reportId, 
+                format, 
+                formatDate(fromDate), 
+                formatDate(toDate), 
+                debouncedSearch
+            );
+
+            // Download
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${report?.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'csv'}`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            setSnackbar({ open: true, message: `${report?.name} exported as ${format.toUpperCase()} successfully!`, severity: 'success' });
+        } catch (error) {
+            console.error('Export failed:', error);
+            setSnackbar({ open: true, message: 'Failed to export report data', severity: 'error' });
+        } finally {
             setLoading(false);
         }
-
-        if (!data.length) {
-            setSnackbar({ open: true, message: 'No data to export', severity: 'warning' });
-            return;
-        }
-
-        // Move 'Amount' column to the end and add total row for sales report
-        let csv = '';
-        if (reportId === 'sales' && data.length > 0) {
-            // Force column order for sales report
-            const keys = ['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'];
-            const headers = keys.join(',');
-            let totalAmount = 0;
-            const rows = data.map(row => {
-                const rowAny = row as any;
-                const rowArr = keys.map(k => rowAny[k]);
-                // Sum up Amount column
-                const amt = parseFloat(rowAny['Amount']);
-                if (!isNaN(amt)) totalAmount += amt;
-                return rowArr.join(',');
-            });
-            // Add total row
-            const totalRow = Array(keys.length).fill('');
-            totalRow[keys.length - 1] = totalAmount.toFixed(2);
-            rows.push(totalRow.join(','));
-            csv = `${headers}\n${rows.join('\n')}`;
-        } else {
-            const headers = Object.keys(data[0]).join(',');
-            const rows = data.map(row => Object.values(row).join(',')).join('\n');
-            csv = `${headers}\n${rows}`;
-        }
-
-        // Download
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${report?.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        setSnackbar({ open: true, message: `${report?.name} exported successfully!`, severity: 'success' });
     };
 
     const getReportData = (reportId: ReportType) => {
@@ -310,63 +275,55 @@ export default function Reports() {
         }
     };
 
-    // Handler for selecting/deselecting sales
-    const handleSaleSelect = (id: number) => {
-        setSelectedSales(prev => prev.includes(id) ? prev.filter(sid => sid !== id) : [...prev, id]);
-    };
-    const handleSelectAllSales = (ids: number[]) => {
-        if (selectedSales.length === ids.length) {
-            setSelectedSales([]);
-        } else {
-            setSelectedSales(ids);
-        }
-    };
-
     const renderPreviewContent = () => {
-        if (loading) {
-            return (
-                <Box display="flex" justifyContent="center" alignItems="center" py={8}>
-                    <CircularProgress />
-                </Box>
-            );
-        }
-
-        const data = getReportData(currentReport!);
-
-        // Empty state
-        if (!data || data.length === 0) {
-            return (
-                <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8}>
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                        No Data Available
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                        {currentReport === 'stock' && 'No products found. Add products to see the stock report.'}
-                        {currentReport === 'sales' && 'No sales transactions found. Create sales to see the sales report.'}
-                        {currentReport === 'purchase' && 'No purchase transactions found. Create purchases to see the purchase report.'}
-                        {currentReport === 'profit' && 'No transactions found. Create sales and purchases to see profit analysis.'}
-                    </Typography>
-                </Box>
-            );
-        }
+        if (loading && total === 0) return (
+            <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+                <CircularProgress size={40} />
+            </Box>
+        );
 
         switch (currentReport) {
             case 'stock':
-                return <StockReportPreview data={data} products={products} searchTerm={debouncedSearch} />;
+                return (
+                    <StockReportPreview 
+                        products={products} 
+                        loading={loading}
+                        total={total}
+                        page={page}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                );
             case 'sales':
-                return <SalesReportPreview 
-                    data={data}
-                    transactions={transactions.filter(t => t.type === 'sale')}
-                    partners={partners}
-                    searchTerm={debouncedSearch}
-                    selectedSales={selectedSales}
-                    onSaleSelect={handleSaleSelect}
-                    onSelectAllSales={handleSelectAllSales}
-                />;
+                return (
+                    <SalesReportPreview 
+                        transactions={transactions} 
+                        partners={partners}
+                        loading={loading}
+                        total={total}
+                        page={page}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                );
             case 'purchase':
-                return <PurchaseReportPreview data={data} transactions={transactions.filter(t => t.type === 'purchase')} partners={partners} searchTerm={debouncedSearch} />;
+                return (
+                    <PurchaseReportPreview 
+                        transactions={transactions} 
+                        partners={partners}
+                        loading={loading}
+                        total={total}
+                        page={page}
+                        pageSize={pageSize}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                );
             case 'profit':
-                return <ProfitLossPreview data={data} transactions={transactions} />;
+                // Profit & Loss doesn't have server-side pagination yet in backend, using client data
+                return <ProfitLossPreview data={getReportData('profit')} transactions={transactions} />;
             default:
                 return null;
         }
@@ -445,6 +402,30 @@ export default function Reports() {
                                         >
                                             Preview Report
                                         </Button>
+                                        <Stack direction="row" spacing={1}>
+                                            <Button
+                                                fullWidth
+                                                variant="outlined"
+                                                size="small"
+                                                startIcon={<FileDownloadIcon />}
+                                                onClick={() => handleExport(report.id, 'excel')}
+                                                disabled={role === 'viewonly'}
+                                                sx={{ color: report.color, borderColor: report.color }}
+                                            >
+                                                Excel
+                                            </Button>
+                                            <Button
+                                                fullWidth
+                                                variant="outlined"
+                                                size="small"
+                                                startIcon={<FileDownloadIcon />}
+                                                onClick={() => handleExport(report.id, 'csv')}
+                                                disabled={role === 'viewonly'}
+                                                sx={{ color: report.color, borderColor: report.color }}
+                                            >
+                                                CSV
+                                            </Button>
+                                        </Stack>
                                     </Stack>
                                 </CardContent>
                             </Card>
@@ -460,7 +441,7 @@ export default function Reports() {
                 maxWidth="lg"
                 fullWidth
                 PaperProps={{
-                    sx: { minHeight: '80vh' }
+                    sx: { minHeight: '80vh', maxHeight: '90vh' }
                 }}
             >
                 <DialogTitle sx={{
@@ -480,7 +461,7 @@ export default function Reports() {
                 </DialogTitle>
 
 
-                <DialogContent sx={{ p: 3, bgcolor: '#f5f5f5', pt: 3 }}>
+                <DialogContent sx={{ p: 3, bgcolor: '#f5f5f5', pt: 3, display: 'flex', flexDirection: 'column' }}>
                     {previewOpen && (
                         <Box sx={{ mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                             <TextField
@@ -497,7 +478,7 @@ export default function Reports() {
                                     )
                                 }}
                             />
-                            {currentReport === 'sales' && (
+                            {(currentReport === 'sales' || currentReport === 'purchase' || currentReport === 'profit') && (
                                 <>
                                     <TextField
                                         label="From Date"
@@ -521,19 +502,30 @@ export default function Reports() {
                             )}
                         </Box>
                     )}
-
-                    {renderPreviewContent()}
+                    <Box sx={{ flexGrow: 1, minHeight: 0 }}>
+                        {renderPreviewContent()}
+                    </Box>
                 </DialogContent>
-
-                <DialogActions sx={{ p: 2, bgcolor: '#f9f9f9' }}>
-                    <Button onClick={() => setPreviewOpen(false)}>Close</Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<DownloadIcon />}
-                        onClick={() => currentReport && role !== 'viewonly' && handleExport(currentReport)}
-                        disabled={loading || getReportData(currentReport!).length === 0 || role === 'viewonly'}
+                <DialogActions sx={{ p: 2, gap: 1 }}>
+                    <Button 
+                        startIcon={<FileDownloadIcon />} 
+                        onClick={() => handleExport(currentReport!, 'excel')}
+                        variant="outlined"
+                        sx={{ color: currentReportInfo?.color, borderColor: currentReportInfo?.color }}
                     >
-                        Export to CSV
+                        Excel
+                    </Button>
+                    <Button 
+                        startIcon={<FileDownloadIcon />} 
+                        onClick={() => handleExport(currentReport!, 'csv')}
+                        variant="outlined"
+                        sx={{ color: currentReportInfo?.color, borderColor: currentReportInfo?.color }}
+                    >
+                        CSV
+                    </Button>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Button onClick={() => setPreviewOpen(false)} variant="contained" sx={{ bgcolor: '#757575', '&:hover': { bgcolor: '#616161' } }}>
+                        Close
                     </Button>
                 </DialogActions>
             </Dialog>
@@ -571,32 +563,67 @@ export default function Reports() {
 }
 
 // Stock Report Preview Component
-function StockReportPreview({ data, products, searchTerm }: { data: any[], products: Product[], searchTerm: string }) {
-    const filtered = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+function StockReportPreview({ 
+    products, 
+    loading, 
+    total, 
+    page, 
+    pageSize, 
+    onPageChange, 
+    onPageSizeChange 
+}: { 
+    products: Product[], 
+    loading: boolean,
+    total: number,
+    page: number,
+    pageSize: number,
+    onPageChange: (params: any) => void,
+    onPageSizeChange: (pageSize: number) => void
+}) {
+    const totalInventoryValueCost = useMemo(() => products.reduce((sum, p) => sum + (p.stock_quantity * p.cost_price), 0), [products]);
+    const totalRetailValue = useMemo(() => products.reduce((sum, p) => sum + (p.stock_quantity * p.price), 0), [products]);
+    const lowStockCount = useMemo(() => products.filter(p => p.stock_quantity < p.min_stock_level).length, [products]);
 
-    const totalStockValue = filtered.reduce((sum, p) => sum + (p.stock_quantity * p.cost_price), 0);
-    const totalRetailValue = filtered.reduce((sum, p) => sum + (p.stock_quantity * p.price), 0);
-    const lowStockCount = filtered.filter(p => p.stock_quantity < p.min_stock_level).length;
+    const columns: GridColDef[] = [
+        { field: 'name', headerName: 'Product Name', flex: 1, valueGetter: (params) => params.row.name.toUpperCase() },
+        { field: 'sku', headerName: 'SKU', width: 130 },
+        { field: 'category', headerName: 'Category', width: 150, valueGetter: (params) => params.row.category?.name?.toUpperCase() || '-' },
+        { field: 'stock_quantity', headerName: 'Stock', width: 100, type: 'number' },
+        { field: 'cost_price', headerName: 'Cost', width: 100, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'price', headerName: 'Retail', width: 100, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { 
+            field: 'status', 
+            headerName: 'Status', 
+            width: 130,
+            renderCell: (params) => {
+                const isLow = params.row.stock_quantity < params.row.min_stock_level;
+                return (
+                    <Chip
+                        label={isLow ? 'Low Stock' : 'In Stock'}
+                        size="small"
+                        color={isLow ? 'error' : 'success'}
+                        variant="outlined"
+                    />
+                );
+            }
+        },
+    ];
 
-    const chartData = filtered.slice(0, 10).map(p => ({
-        name: p.name.length > 15 ? p.name.substring(0, 15) + '...' : p.name,
+    const chartData = useMemo(() => products.slice(0, 10).map(p => ({
+        name: p.name.length > 10 ? p.name.substring(0, 10) + '...' : p.name,
         stock: p.stock_quantity,
         minLevel: p.min_stock_level
-    }));
+    })), [products]);
 
     return (
-        <Box>
-            {/* Summary Cards */}
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
                             <Typography variant="body2" color="text.secondary">Total Stock Value (Cost)</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>
-                                {totalStockValue.toFixed(2)}
+                                {totalInventoryValueCost.toFixed(2)}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -604,7 +631,7 @@ function StockReportPreview({ data, products, searchTerm }: { data: any[], produ
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Total Retail Value</Typography>
+                            <Typography variant="body2" color="text.secondary">Est. Retail Value</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#4caf50' }}>
                                 {totalRetailValue.toFixed(2)}
                             </Typography>
@@ -623,17 +650,15 @@ function StockReportPreview({ data, products, searchTerm }: { data: any[], produ
                 </Grid>
             </Grid>
 
-            {/* Chart */}
             {chartData.length > 0 && (
                 <Card sx={{ mb: 2, p: 2, bgcolor: 'white' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Stock Levels (Top 10 Products)</Typography>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 400 }}>Stock Levels (Current Page Top 10)</Typography>
+                    <ResponsiveContainer width="100%" height={200}>
                         <BarChart data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                            <YAxis />
+                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} fontSize={10} />
+                            <YAxis fontSize={10} />
                             <Tooltip />
-                            <Legend />
                             <Bar dataKey="stock" fill="#2196f3" name="Current Stock" />
                             <Bar dataKey="minLevel" fill="#f44336" name="Min Level" />
                         </BarChart>
@@ -641,92 +666,106 @@ function StockReportPreview({ data, products, searchTerm }: { data: any[], produ
                 </Card>
             )}
 
-            {/* Table */}
-            <Card sx={{ bgcolor: 'white' }}>
-                <TableContainer>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-                                {data.length > 0 && Object.keys(data[0]).map((key) => (
-                                    <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {data.length > 0 ? (
-                                data.map((row, idx) => (
-                                    <TableRow key={idx} hover>
-                                        {Object.entries(row).map(([key, value]: any, i) => (
-                                            <TableCell key={i}>
-                                                {key === 'Status' ? (
-                                                    <Chip
-                                                        label={value}
-                                                        size="small"
-                                                        color={value === 'Low Stock' ? 'error' : 'success'}
-                                                        variant="outlined"
-                                                    />
-                                                ) : value}
-                                            </TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell align="center" sx={{ py: 4 }}>
-                                        <Typography color="text.secondary">No data to display</Typography>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+            <Card sx={{ flexGrow: 1, minHeight: 400, bgcolor: 'white' }}>
+                <DataGrid
+                    rows={products}
+                    columns={columns}
+                    loading={loading}
+                    rowCount={total}
+                    paginationMode="server"
+                    paginationModel={{ page, pageSize }}
+                    onPaginationModelChange={(model) => {
+                        onPageChange(model.page);
+                        onPageSizeChange(model.pageSize);
+                    }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    disableRowSelectionOnClick
+                    density="compact"
+                    sx={{ border: 'none' }}
+                />
             </Card>
         </Box>
     );
 }
 
 // Sales Report Preview Component
-function SalesReportPreview({ data, transactions, partners, searchTerm, selectedSales = [], onSaleSelect = () => {}, onSelectAllSales = () => {} }: {
-    data: any[],
+function SalesReportPreview({ 
+    transactions, 
+    partners, 
+    loading, 
+    total, 
+    page, 
+    pageSize, 
+    onPageChange, 
+    onPageSizeChange 
+}: {
     transactions: Transaction[],
     partners: Partner[],
-    searchTerm: string,
-    selectedSales?: number[],
-    onSaleSelect?: (id: number) => void,
-    onSelectAllSales?: (ids: number[]) => void
+    loading: boolean,
+    total: number,
+    page: number,
+    pageSize: number,
+    onPageChange: (page: number) => void,
+    onPageSizeChange: (pageSize: number) => void
 }) {
-    const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-    const filtered = transactions.filter(t => {
-        const partnerName = partnerMap[t.partner_id] || 'Unknown';
-        return partnerName.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+    const partnerMap = useMemo(() => Object.fromEntries(partners.map(p => [p.id, p.name])), [partners]);
+    
+    // Aggregation for summary cards
+    const totalRevenue = useMemo(() => transactions.reduce((sum, t) => sum + t.total_amount, 0), [transactions]);
+    // Remove avgOrderValue if unused
 
-    const totalRevenue = filtered.reduce((sum, t) => sum + t.total_amount, 0);
-    const avgOrderValue = filtered.length > 0 ? totalRevenue / filtered.length : 0;
+    const chartData = useMemo(() => {
+        const customerSales = transactions.reduce((acc, t) => {
+            const name = partnerMap[t.partner_id] || 'Unknown';
+            acc[name] = (acc[name] || 0) + t.total_amount;
+            return acc;
+        }, {} as Record<string, number>);
 
-    // Top customers
-    const customerSales = filtered.reduce((acc, t) => {
-        const name = partnerMap[t.partner_id] || 'Unknown';
-        acc[name] = (acc[name] || 0) + t.total_amount;
-        return acc;
-    }, {} as Record<string, number>);
+        return Object.entries(customerSales)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 5)
+            .map(([name, value]) => ({ name, value }));
+    }, [transactions, partnerMap]);
 
-    const chartData = Object.entries(customerSales)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 5)
-        .map(([name, value]) => ({ name, value }));
+    // Flatten transactions for DataGrid (showing items separately if needed, but summary is usually better for table)
+    const rows = useMemo(() => {
+        const flattened: any[] = [];
+        transactions.forEach((t) => {
+            t.items.forEach((item, iIdx) => {
+                flattened.push({
+                    id: `${t.id}-${item.product_id}-${iIdx}`,
+                    transactionId: t.id,
+                    date: t.date,
+                    customer: partnerMap[t.partner_id] || 'Unknown',
+                    sku: item.product?.sku || '-',
+                    itemName: item.product?.name?.toUpperCase() || '-',
+                    amount: item.price * item.quantity,
+                    paymentMethod: t.payment_method || 'Cash',
+                    salesPerson: t.sales_person || '-',
+                    status: 'Completed'
+                });
+            });
+        });
+        return flattened;
+    }, [transactions, partnerMap]);
 
-    // Get all sale IDs in filtered data order
-    const saleIds = transactions.map(t => t.id);
+    const columns: GridColDef[] = [
+        { field: 'date', headerName: 'Date', width: 140, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
+        { field: 'customer', headerName: 'Customer', flex: 1 },
+        { field: 'sku', headerName: 'SKU', width: 120 },
+        { field: 'itemName', headerName: 'Product', flex: 1.5 },
+        { field: 'amount', headerName: 'Amount', width: 110, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'paymentMethod', headerName: 'Method', width: 110 },
+        { field: 'salesPerson', headerName: 'Sales Person', width: 130 },
+    ];
 
     return (
-        <Box>
-            {/* Summary Cards */}
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Total Sales Revenue</Typography>
+                            <Typography variant="body2" color="text.secondary">Page Revenue</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#4caf50' }}>
                                 {totalRevenue.toFixed(2)}
                             </Typography>
@@ -736,9 +775,9 @@ function SalesReportPreview({ data, transactions, partners, searchTerm, selected
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Total Transactions</Typography>
+                            <Typography variant="body2" color="text.secondary">Page Transactions</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>
-                                {filtered.length}
+                                {transactions.length}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -746,28 +785,27 @@ function SalesReportPreview({ data, transactions, partners, searchTerm, selected
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Average Order Value</Typography>
+                            <Typography variant="body2" color="text.secondary">Total Records</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#ff9800' }}>
-                                {avgOrderValue.toFixed(2)}
+                                {total}
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
 
-            {/* Chart */}
             {chartData.length > 0 && (
                 <Card sx={{ mb: 2, p: 2, bgcolor: 'white' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Top 5 Customers</Typography>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 400 }}>Top Customers (Page Data)</Typography>
+                    <ResponsiveContainer width="100%" height={200}>
                         <RechartsPie>
                             <Pie
                                 data={chartData}
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                label={(entry) => `${entry.name}: ${entry.value.toFixed(2)}`}
-                                outerRadius={100}
+                                label={(entry) => `${(entry.name || '').substring(0, 10)}: ${entry.value.toFixed(0)}`}
+                                outerRadius={80}
                                 fill="#8884d8"
                                 dataKey="value"
                             >
@@ -781,89 +819,84 @@ function SalesReportPreview({ data, transactions, partners, searchTerm, selected
                 </Card>
             )}
 
-            {/* Table */}
-            <Card sx={{ bgcolor: 'white' }}>
-                <TableContainer>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-                                <TableCell padding="checkbox">
-                                    <Checkbox
-                                        indeterminate={selectedSales.length > 0 && selectedSales.length < saleIds.length}
-                                        checked={saleIds.length > 0 && selectedSales.length === saleIds.length}
-                                        onChange={() => onSelectAllSales(saleIds)}
-                                        inputProps={{ 'aria-label': 'select all sales' }}
-                                    />
-                                </TableCell>
-                                {['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'].map((key) => (
-                                    <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {data.length > 0 ? (
-                                data.map((row, idx) => (
-                                    <TableRow key={idx} hover selected={selectedSales.includes(transactions[idx].id)}>
-                                        <TableCell padding="checkbox">
-                                            <Checkbox
-                                                checked={selectedSales.includes(transactions[idx].id)}
-                                                onChange={() => onSaleSelect(transactions[idx].id)}
-                                            />
-                                        </TableCell>
-                                        {['Sr. No.','Date','Customer','SKU Code','Item Name','Amount','Payment Method','Sales Person','Status'].map((key, i) => (
-                                            <TableCell key={i}>{row[key] ?? '-'}</TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell align="center" sx={{ py: 4 }} colSpan={10}>
-                                        <Typography color="text.secondary">No sales data to display</Typography>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+            <Card sx={{ flexGrow: 1, minHeight: 400, bgcolor: 'white' }}>
+                <DataGrid
+                    rows={rows}
+                    columns={columns}
+                    loading={loading}
+                    rowCount={total}
+                    paginationMode="server"
+                    paginationModel={{ page, pageSize }}
+                    onPaginationModelChange={(model) => {
+                        onPageChange(model.page);
+                        onPageSizeChange(model.pageSize);
+                    }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    disableRowSelectionOnClick
+                    density="compact"
+                    sx={{ border: 'none' }}
+                />
             </Card>
         </Box>
     );
 }
 
 // Purchase Report Preview Component
-function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { data: any[], transactions: Transaction[], partners: Partner[], searchTerm: string }) {
-    const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-    const filtered = transactions.filter(t => {
-        const partnerName = partnerMap[t.partner_id] || 'Unknown';
-        return partnerName.toLowerCase().includes(searchTerm.toLowerCase());
-    });
+function PurchaseReportPreview({ 
+    transactions, 
+    partners, 
+    loading, 
+    total, 
+    page, 
+    pageSize, 
+    onPageChange, 
+    onPageSizeChange 
+}: { 
+    transactions: Transaction[], 
+    partners: Partner[], 
+    loading: boolean,
+    total: number,
+    page: number,
+    pageSize: number,
+    onPageChange: (page: number) => void,
+    onPageSizeChange: (pageSize: number) => void
+}) {
+    const partnerMap = useMemo(() => Object.fromEntries(partners.map(p => [p.id, p.name])), [partners]);
+    
+    const totalCost = useMemo(() => transactions.reduce((sum, t) => sum + t.total_amount, 0), [transactions]);
+    // Remove avgPurchaseValue if unused
 
-    const totalCost = filtered.reduce((sum, t) => sum + t.total_amount, 0);
-    const avgPurchaseValue = filtered.length > 0 ? totalCost / filtered.length : 0;
+    const chartData = useMemo(() => {
+        const vendorPurchases = transactions.reduce((acc, t) => {
+            const name = partnerMap[t.partner_id] || 'Unknown';
+            acc[name] = (acc[name] || 0) + t.total_amount;
+            return acc;
+        }, {} as Record<string, number>);
 
-    // Top vendors
-    const vendorPurchases = filtered.reduce((acc, t) => {
-        const name = partnerMap[t.partner_id] || 'Unknown';
-        acc[name] = (acc[name] || 0) + t.total_amount;
-        return acc;
-    }, {} as Record<string, number>);
+        return Object.entries(vendorPurchases)
+            .sort(([, a], [, b]) => b - a)
+            .slice(0, 8)
+            .map(([name, value]) => ({
+                name: name.length > 12 ? name.substring(0, 12) + '...' : name,
+                amount: value
+            }));
+    }, [transactions, partnerMap]);
 
-    const chartData = Object.entries(vendorPurchases)
-        .sort(([, a], [, b]) => b - a)
-        .slice(0, 8)
-        .map(([name, value]) => ({
-            name: name.length > 15 ? name.substring(0, 15) + '...' : name,
-            amount: value
-        }));
+    const columns: GridColDef[] = [
+        { field: 'date', headerName: 'Date', width: 140, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
+        { field: 'vendor', headerName: 'Vendor', flex: 1, valueGetter: (params) => partnerMap[params.row.partner_id] || 'Unknown' },
+        { field: 'total_amount', headerName: 'Total Amount', width: 150, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'vat_percent', headerName: 'VAT %', width: 100, type: 'number' },
+        { field: 'items_count', headerName: 'Items', width: 100, valueGetter: (params) => params.row.items?.length || 0 },
+    ];
 
     return (
-        <Box>
-            {/* Summary Cards */}
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Total Purchase Cost</Typography>
+                            <Typography variant="body2" color="text.secondary">Page Purchase Cost</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#ff9800' }}>
                                 {totalCost.toFixed(2)}
                             </Typography>
@@ -873,9 +906,9 @@ function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { d
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Total Transactions</Typography>
+                            <Typography variant="body2" color="text.secondary">Page Transactions</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>
-                                {filtered.length}
+                                {transactions.length}
                             </Typography>
                         </CardContent>
                     </Card>
@@ -883,62 +916,47 @@ function PurchaseReportPreview({ data, transactions, partners, searchTerm }: { d
                 <Grid item xs={12} sm={4}>
                     <Card sx={{ bgcolor: 'white' }}>
                         <CardContent>
-                            <Typography variant="body2" color="text.secondary">Average Purchase Value</Typography>
+                            <Typography variant="body2" color="text.secondary">Total Records</Typography>
                             <Typography variant="h6" sx={{ fontWeight: 400, color: '#00897b' }}>
-                                {avgPurchaseValue.toFixed(2)}
+                                {total}
                             </Typography>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
 
-            {/* Chart */}
             {chartData.length > 0 && (
                 <Card sx={{ mb: 2, p: 2, bgcolor: 'white' }}>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Top Vendors by Purchase Amount</Typography>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <Typography variant="h6" sx={{ mb: 1, fontWeight: 400 }}>Top Vendors (Page Data)</Typography>
+                    <ResponsiveContainer width="100%" height={200}>
                         <BarChart data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
-                            <YAxis />
+                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} fontSize={10} />
+                            <YAxis fontSize={10} />
                             <Tooltip />
-                            <Legend />
                             <Bar dataKey="amount" fill="#ff9800" name="Purchase Amount" />
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
             )}
 
-            {/* Table */}
-            <Card sx={{ bgcolor: 'white' }}>
-                <TableContainer>
-                    <Table size="small">
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-                                {data.length > 0 && Object.keys(data[0]).map((key) => (
-                                    <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
-                                ))}
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {data.length > 0 ? (
-                                data.map((row, idx) => (
-                                    <TableRow key={idx} hover>
-                                        {Object.values(row).map((value: any, i) => (
-                                            <TableCell key={i}>{value}</TableCell>
-                                        ))}
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell align="center" sx={{ py: 4 }}>
-                                        <Typography color="text.secondary">No purchase data to display</Typography>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+            <Card sx={{ flexGrow: 1, minHeight: 400, bgcolor: 'white' }}>
+                <DataGrid
+                    rows={transactions}
+                    columns={columns}
+                    loading={loading}
+                    rowCount={total}
+                    paginationMode="server"
+                    paginationModel={{ page, pageSize }}
+                    onPaginationModelChange={(model) => {
+                        onPageChange(model.page);
+                        onPageSizeChange(model.pageSize);
+                    }}
+                    pageSizeOptions={[10, 25, 50, 100]}
+                    disableRowSelectionOnClick
+                    density="compact"
+                    sx={{ border: 'none' }}
+                />
             </Card>
         </Box>
     );
