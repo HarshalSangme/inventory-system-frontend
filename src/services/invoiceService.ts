@@ -13,10 +13,34 @@ export interface PaginatedResponse<T> {
   total: number;
 }
 
-export const getInvoices = async (skip: number = 0, limit: number = 1000, search?: string) => {
-  // For now, reuse transactions as invoices
+export interface InvoiceCounts {
+  total: number;
+  unpaid: number;
+  partial: number;
+  paid: number;
+}
+
+export const getInvoices = async (
+  skip: number = 0,
+  limit: number = 25,
+  search?: string,
+  paymentStatus?: string  // 'unpaid' | 'partial' | 'paid' | undefined = all
+) => {
   const response = await api.get<PaginatedResponse<Transaction>>('/transactions/', {
-    params: { skip, limit, search, type: 'sale' }
+    params: {
+      skip,
+      limit,
+      type: 'sale',
+      ...(search ? { search } : {}),
+      ...(paymentStatus ? { payment_status: paymentStatus } : {}),
+    }
+  });
+  return response.data;
+};
+
+export const getInvoiceCounts = async (): Promise<InvoiceCounts> => {
+  const response = await api.get<InvoiceCounts>('/transactions/counts', {
+    params: { type: 'sale' }
   });
   return response.data;
 };
@@ -30,8 +54,6 @@ export const generateInvoicePDF = async (transactionId: number, editData: Invoic
 
 export const downloadInvoicePDF = async (transactionId: number, editData: InvoiceEditData): Promise<void> => {
   const pdfBlob = await generateInvoicePDF(transactionId, editData);
-  
-  // Create download link
   const url = window.URL.createObjectURL(pdfBlob);
   const link = document.createElement('a');
   link.href = url;

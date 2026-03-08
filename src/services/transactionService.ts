@@ -1,12 +1,3 @@
-export const updateTransaction = async (id: number, data: Partial<TransactionCreate>) => {
-    const response = await api.put<Transaction>(`/transactions/${id}`, data);
-    return response.data;
-};
-
-export const deleteTransaction = async (id: number) => {
-    const response = await api.delete(`/transactions/${id}`);
-    return response.data;
-};
 import api from './api';
 import type { Product } from './productService';
 
@@ -43,7 +34,12 @@ export interface Transaction {
     payment_method?: string;
     amount_paid: number;
     payment_status: 'paid' | 'partial' | 'unpaid';
-    items: TransactionItem[]; 
+    items: TransactionItem[];
+}
+
+export interface PaginatedResponse<T> {
+    data: T[];
+    total: number;
 }
 
 export const createTransaction = async (transaction: TransactionCreate) => {
@@ -51,10 +47,15 @@ export const createTransaction = async (transaction: TransactionCreate) => {
     return response.data;
 };
 
-export interface PaginatedResponse<T> {
-    data: T[];
-    total: number;
-}
+export const updateTransaction = async (id: number, data: Partial<TransactionCreate>) => {
+    const response = await api.put<Transaction>(`/transactions/${id}`, data);
+    return response.data;
+};
+
+export const deleteTransaction = async (id: number) => {
+    const response = await api.delete(`/transactions/${id}`);
+    return response.data;
+};
 
 // Implement getTransactions if needed for the list view
 export const getTransactions = async (skip: number = 0, limit: number = 100, type?: string, fromDate?: string, toDate?: string, search?: string) => {

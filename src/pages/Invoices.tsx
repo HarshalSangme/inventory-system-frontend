@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser } from '../context/UserContext';
 import {
   Button, Box, Typography, TextField, Snackbar, Paper, IconButton,
@@ -18,11 +18,13 @@ import MoneyOffIcon from '@mui/icons-material/MoneyOff';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PaymentIcon from '@mui/icons-material/Payment';
 import HistoryIcon from '@mui/icons-material/History';
-import { getInvoices, downloadInvoicePDF } from '../services/invoiceService';
+import { getInvoices, getInvoiceCounts, downloadInvoicePDF } from '../services/invoiceService';
 import { getAccountsSummary, recordPayment, getPartnerStatement, type LedgerEntry } from '../services/accountService';
 import { getPartners, type Partner } from '../services/partnerService';
 
@@ -62,16 +64,23 @@ const KpiCard = ({ title, value, sub, icon: Icon, color }: any) => (
   </Card>
 );
 
+const PAGE_SIZE = 25;
+const TAB_STATUS = [undefined, 'unpaid', 'partial', 'paid'] as const;
+
 export default function Accounts() {
   const { role } = useUser();
 
-  // Invoice / Transaction state
-  const [allInvoices, setAllInvoices] = useState<any[]>([]);
+  // Invoice / Transaction state — server-side paginated
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoiceTotal, setInvoiceTotal] = useState(0);
+  const [page, setPage] = useState(0); // 0-indexed
+  const [counts, setCounts] = useState({ total: 0, unpaid: 0, partial: 0, paid: 0 });
   const [downloading, setDownloading] = useState(false);
   const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedInv, setSelectedInv] = useState<any>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [invoiceTabValue, setInvoiceTabValue] = useState(0);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [editData, setEditData] = useState<InvoiceEditData>({ invoiceNumber: '', paymentTerms: 'CREDIT', dueDate: '', salesPerson: '' });
@@ -96,65 +105,56 @@ export default function Accounts() {
 
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
+  // Debounce search
+  const searchTimer = useRef<any>(null);
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setDebouncedSearch(val); setPage(0); }, 400);
+  };
+
   const getLoggedInUsername = (): string => {
     const token = localStorage.getItem('token');
     if (!token) return '';
     try { return JSON.parse(atob(token.split('.')[1])).sub || ''; } catch { return ''; }
   };
 
-  const loadAll = async () => {
+  // Load KPI counts + financial summary (lightweight — no row data)
+  const loadCounts = useCallback(async () => {
     try {
-      setLoadingInvoices(true);
-      const [invRes, summaryRes, partnerRes] = await Promise.all([
-        getInvoices(0, 500),
+      const [summaryRes, partnerRes, countsRes] = await Promise.all([
         getAccountsSummary(),
         getPartners(0, 1000),
+        getInvoiceCounts(),
       ]);
-      setAllInvoices(invRes.data || []);
       setAccountSummary(summaryRes);
       setPartners(partnerRes.data || []);
-    } catch { setSnackbar({ open: true, message: 'Failed to load data', severity: 'error' }); }
-    finally { setLoadingInvoices(false); }
-  };
+      setCounts(countsRes);
+    } catch { /* silent */ }
+  }, []);
 
-  useEffect(() => { loadAll(); }, []);
-
-  const fetchStatement = async (partnerId: number) => {
-    setLoadingStatement(true);
+  // Load current page of invoices (server-side filtered)
+  const loadInvoices = useCallback(async (pg: number, tab: number, srch: string) => {
+    setLoadingInvoices(true);
     try {
-      const data = await getPartnerStatement(partnerId);
-      setStatement(data);
-    } catch { console.error('Failed to fetch statement'); }
-    finally { setLoadingStatement(false); }
-  };
+      const status = TAB_STATUS[tab];
+      const res = await getInvoices(pg * PAGE_SIZE, PAGE_SIZE, srch || undefined, status);
+      setInvoices(res.data || []);
+      setInvoiceTotal(res.total || 0);
+    } catch { setSnackbar({ open: true, message: 'Failed to load invoices', severity: 'error' }); }
+    finally { setLoadingInvoices(false); }
+  }, []);
 
-  useEffect(() => {
-    if (selectedPartner) fetchStatement(selectedPartner.id);
-    else setStatement([]);
-  }, [selectedPartner]);
+  // Initial load
+  useEffect(() => { loadCounts(); }, [loadCounts]);
 
-  // Derived KPIs
-  const kpi = useMemo(() => {
-    const unpaidList = allInvoices.filter(i => (i.payment_status || 'unpaid') === 'unpaid');
-    const partialList = allInvoices.filter(i => i.payment_status === 'partial');
-    const totalOutstanding = [...unpaidList, ...partialList].reduce((sum, i) => {
-      return sum + Math.max(0, (parseFloat(i.total_amount) || 0) - (parseFloat(i.amount_paid) || 0));
-    }, 0);
-    return { total: allInvoices.length, unpaidCount: unpaidList.length, partialCount: partialList.length, paidCount: allInvoices.filter(i => i.payment_status === 'paid').length, totalOutstanding };
-  }, [allInvoices]);
+  // Reload when tab / page / debounced search changes
+  useEffect(() => { loadInvoices(page, invoiceTabValue, debouncedSearch); }, [page, invoiceTabValue, debouncedSearch, loadInvoices]);
 
-  // Filtered invoices
-  const filtered = useMemo(() => {
-    let list = allInvoices;
-    if (invoiceTabValue === 1) list = list.filter(i => (i.payment_status || 'unpaid') === 'unpaid');
-    else if (invoiceTabValue === 2) list = list.filter(i => i.payment_status === 'partial');
-    else if (invoiceTabValue === 3) list = list.filter(i => i.payment_status === 'paid');
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      list = list.filter(i => (i.partner?.name || '').toLowerCase().includes(q) || String(i.id).includes(q) || (i.sales_person || '').toLowerCase().includes(q));
-    }
-    return list;
-  }, [allInvoices, invoiceTabValue, search]);
+  const handleTabChange = (_: any, v: number) => { setInvoiceTabValue(v); setPage(0); };
+
+  const totalPages = Math.ceil(invoiceTotal / PAGE_SIZE);
+  const kpi = counts;
 
   const getAmounts = (inv: any) => {
     const total = parseFloat(inv?.total_amount) || 0;
@@ -202,11 +202,29 @@ export default function Accounts() {
       await recordPayment({ transaction_id: paymentTx.id, partner_id: paymentTx.partner_id, amount: parseFloat(paymentAmount), payment_method: paymentMethod, notes: paymentNotes });
       setPaymentDialogOpen(false);
       setSnackbar({ open: true, message: 'Payment recorded successfully!', severity: 'success' });
-      await loadAll();
+      // Refresh current page + counts
+      await Promise.all([
+        loadInvoices(page, invoiceTabValue, debouncedSearch),
+        loadCounts(),
+      ]);
       if (selectedPartner && selectedPartner.id === paymentTx.partner_id) fetchStatement(selectedPartner.id);
     } catch { setSnackbar({ open: true, message: 'Failed to record payment', severity: 'error' }); }
     finally { setSubmitting(false); }
   };
+
+  const fetchStatement = async (partnerId: number) => {
+    setLoadingStatement(true);
+    try {
+      const data = await getPartnerStatement(partnerId);
+      setStatement(data);
+    } catch { console.error('Failed to fetch statement'); }
+    finally { setLoadingStatement(false); }
+  };
+
+  useEffect(() => {
+    if (selectedPartner) fetchStatement(selectedPartner.id);
+    else setStatement([]);
+  }, [selectedPartner]);
 
   const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
   const fBHD = (n: number) => `BHD ${n.toFixed(3)}`;
@@ -246,15 +264,15 @@ export default function Accounts() {
           <Box>
             {/* Toolbar */}
             <Box sx={{ px: 2, pt: 1.5, pb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Tabs value={invoiceTabValue} onChange={(_, v) => setInvoiceTabValue(v)}
+              <Tabs value={invoiceTabValue} onChange={handleTabChange}
                 sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: 12, fontWeight: 500, textTransform: 'none' } }}>
                 <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>All <Badge badgeContent={kpi.total} color="default" max={999} sx={{ ml: 1 }} /></Box>} />
-                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Unpaid <Badge badgeContent={kpi.unpaidCount} color="error" max={99} sx={{ ml: 1 }} /></Box>} />
-                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Partial <Badge badgeContent={kpi.partialCount} color="warning" max={99} sx={{ ml: 1 }} /></Box>} />
+                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Unpaid <Badge badgeContent={kpi.unpaid} color="error" max={99} sx={{ ml: 1 }} /></Box>} />
+                <Tab label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>Partial <Badge badgeContent={kpi.partial} color="warning" max={99} sx={{ ml: 1 }} /></Box>} />
                 <Tab label="Paid" />
               </Tabs>
               <TextField size="small" placeholder="Search by customer, ID, salesperson..."
-                value={search} onChange={e => setSearch(e.target.value)}
+                value={search} onChange={e => handleSearchChange(e.target.value)}
                 InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} /></InputAdornment> }}
                 sx={{ width: 280, '& .MuiInputBase-input': { fontSize: 12 } }}
               />
@@ -276,12 +294,12 @@ export default function Accounts() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filtered.length === 0 ? (
+                  {invoices.length === 0 ? (
                     <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>
                       <FilterListIcon sx={{ fontSize: 36, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
                       <Typography variant="body2" color="text.secondary">No transactions found</Typography>
                     </TableCell></TableRow>
-                  ) : filtered.map((inv: any) => {
+                  ) : invoices.map((inv: any) => {
                     const { total, paid, due, pct } = getAmounts(inv);
                     return (
                       <TableRow key={inv.id} hover sx={{ '&:hover': { bgcolor: '#fafafa' } }}>
@@ -326,8 +344,19 @@ export default function Accounts() {
               </Table>
             </TableContainer>
             <Box sx={{ px: 2, py: 1, borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Showing {filtered.length} of {allInvoices.length} invoices</Typography>
-              <Button size="small" sx={{ fontSize: 10 }} onClick={loadAll}>Refresh</Button>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>
+                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, invoiceTotal)} of {invoiceTotal} invoices
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <IconButton size="small" onClick={() => setPage(p => p - 1)} disabled={page === 0}>
+                  <NavigateBeforeIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+                <Typography variant="caption" sx={{ fontSize: 11 }}>Page {page + 1} of {totalPages || 1}</Typography>
+                <IconButton size="small" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>
+                  <NavigateNextIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+                <Button size="small" sx={{ fontSize: 10 }} onClick={() => { loadInvoices(page, invoiceTabValue, debouncedSearch); loadCounts(); }}>Refresh</Button>
+              </Box>
             </Box>
           </Box>
         )}
