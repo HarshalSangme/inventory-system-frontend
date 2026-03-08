@@ -136,6 +136,7 @@ export default function Accounts() {
   // Load current page of invoices (server-side filtered)
   const loadInvoices = useCallback(async (pg: number, tab: number, srch: string) => {
     setLoadingInvoices(true);
+    setInvoices([]);  // clear stale rows immediately so old data never shows
     try {
       const status = TAB_STATUS[tab];
       const res = await getInvoices(pg * PAGE_SIZE, PAGE_SIZE, srch || undefined, status);
@@ -294,7 +295,12 @@ export default function Accounts() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {invoices.length === 0 ? (
+                  {loadingInvoices ? (
+                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>
+                      <CircularProgress size={28} />
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Loading...</Typography>
+                    </TableCell></TableRow>
+                  ) : invoices.length === 0 ? (
                     <TableRow><TableCell colSpan={7} align="center" sx={{ py: 5 }}>
                       <FilterListIcon sx={{ fontSize: 36, mb: 1, opacity: 0.3, display: 'block', mx: 'auto' }} />
                       <Typography variant="body2" color="text.secondary">No transactions found</Typography>
@@ -348,11 +354,11 @@ export default function Accounts() {
                 Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, invoiceTotal)} of {invoiceTotal} invoices
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <IconButton size="small" onClick={() => setPage(p => p - 1)} disabled={page === 0}>
+                <IconButton size="small" onClick={() => setPage(p => p - 1)} disabled={page === 0 || loadingInvoices}>
                   <NavigateBeforeIcon sx={{ fontSize: 18 }} />
                 </IconButton>
                 <Typography variant="caption" sx={{ fontSize: 11 }}>Page {page + 1} of {totalPages || 1}</Typography>
-                <IconButton size="small" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1}>
+                <IconButton size="small" onClick={() => setPage(p => p + 1)} disabled={page >= totalPages - 1 || loadingInvoices}>
                   <NavigateNextIcon sx={{ fontSize: 18 }} />
                 </IconButton>
                 <Button size="small" sx={{ fontSize: 10 }} onClick={() => { loadInvoices(page, invoiceTabValue, debouncedSearch); loadCounts(); }}>Refresh</Button>
