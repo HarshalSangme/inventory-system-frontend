@@ -339,7 +339,7 @@ export default function Accounts() {
                             <Tooltip title="View Details"><IconButton size="small" onClick={() => handleOpenDetail(inv)}><InfoOutlinedIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                             <Tooltip title="Generate PDF"><IconButton size="small" color="primary" onClick={() => handleOpenPdfDialog(inv)} disabled={role === 'viewonly'}><PictureAsPdfIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                             {(inv.payment_status === 'unpaid' || inv.payment_status === 'partial') && (
-                              <Tooltip title="Record Payment"><IconButton size="small" color="success" onClick={() => handleOpenPayment(inv)} disabled={role === 'viewonly'}><PaymentIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                              <Tooltip title="Record Receipt"><IconButton size="small" color="success" onClick={() => handleOpenPayment(inv)} disabled={role === 'viewonly'}><PaymentIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                             )}
                           </Box>
                         </TableCell>
@@ -610,7 +610,7 @@ export default function Accounts() {
       {/* ======= RECORD PAYMENT DIALOG ======= */}
       <Dialog open={paymentDialogOpen} onClose={() => !submitting && setPaymentDialogOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><PaymentIcon color="success" sx={{ fontSize: 18 }} /><Typography fontWeight={600} sx={{ fontSize: 14 }}>Record Payment</Typography></Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><PaymentIcon color="success" sx={{ fontSize: 18 }} /><Typography fontWeight={600} sx={{ fontSize: 14 }}>Record Receipt</Typography></Box>
           <IconButton size="small" onClick={() => setPaymentDialogOpen(false)} disabled={submitting}><CloseIcon /></IconButton>
         </DialogTitle>
         <Divider />
@@ -651,7 +651,7 @@ export default function Accounts() {
           <Button onClick={() => setPaymentDialogOpen(false)} disabled={submitting} size="small">Cancel</Button>
           <Button variant="contained" color="success" onClick={handleRecordPayment} disabled={submitting || !paymentAmount || parseFloat(paymentAmount) <= 0} size="small"
             startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <CheckCircleIcon />}>
-            {submitting ? 'Recording...' : 'Confirm Payment'}
+            {submitting ? 'Recording...' : 'Confirm Receipt'}
           </Button>
         </DialogActions>
       </Dialog>
