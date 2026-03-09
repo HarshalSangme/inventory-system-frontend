@@ -54,6 +54,11 @@ export const updateProduct = async (id: number, product: ProductForm) => {
     return response.data;
 };
 
+export const getNextSku = async (): Promise<string> => {
+    const response = await api.get<{ next_sku: string }>('/products/next-sku');
+    return response.data.next_sku;
+};
+
 export const deleteProduct = async (id: number) => {
     const response = await api.delete(`/products/${id}`);
     return response.data;

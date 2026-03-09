@@ -440,7 +440,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                             size="small"
                                             sx={{ minWidth: 100, mb: selectedProduct && type === 'purchase' ? 0.5 : 0 }}
                                             value={skuFieldValue}
-                                            onChange={e => {
+                                             onChange={e => {
                                                 if (role === 'viewonly') return;
                                                 const sku = e.target.value;
                                                 const newItems = [...items];
@@ -448,19 +448,56 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                                     ...newItems[index],
                                                     sku
                                                 };
-                                                // If SKU matches a product, auto-select it
+
+                                                // 1. Fast client-side lookup in currently-loaded products
                                                 const found = products.find(p => p.sku && p.sku.toLowerCase() === sku.trim().toLowerCase());
                                                 if (found) {
                                                     newItems[index] = {
                                                         ...newItems[index],
                                                         product_id: found.id,
-                                                        product: found, // Store full product object
+                                                        product: found,
                                                         price: type === 'sale' ? +(1.4 * (found.cost_price || 0)).toFixed(2) : found.price || 0,
                                                         quantity: 1,
                                                         discount: 0
                                                     };
+                                                    setItems(newItems);
+                                                    return;
                                                 }
-                                                setItems(newItems);
+
+                                                // Update state immediately so user sees what they typed
+                                                setItems([...newItems]);
+
+                                                // 2. Fallback: ask backend by exact SKU (debounced via timeout)
+                                                if (sku.trim().length >= 2) {
+                                                    // Cancel any previous timer on this row using a data attribute pattern
+                                                    const timerKey = `sku_timer_${index}`;
+                                                    if ((window as any)[timerKey]) clearTimeout((window as any)[timerKey]);
+                                                    (window as any)[timerKey] = setTimeout(async () => {
+                                                        try {
+                                                            const res = await getProducts(0, 1, undefined, undefined, sku.trim());
+                                                            if (res.data.length > 0) {
+                                                                const backendProduct = res.data[0];
+                                                                if (backendProduct.sku.toLowerCase() === sku.trim().toLowerCase()) {
+                                                                    setItems(prev => {
+                                                                        const updated = [...prev];
+                                                                        updated[index] = {
+                                                                            ...updated[index],
+                                                                            product_id: backendProduct.id,
+                                                                            product: backendProduct,
+                                                                            price: type === 'sale' ? +(1.4 * (backendProduct.cost_price || 0)).toFixed(2) : backendProduct.price || 0,
+                                                                            quantity: updated[index].quantity || 1,
+                                                                            discount: updated[index].discount || 0,
+                                                                            sku: backendProduct.sku
+                                                                        };
+                                                                        return updated;
+                                                                    });
+                                                                }
+                                                            }
+                                                        } catch (_) {
+                                                            // Silently ignore — user may still be typing
+                                                        }
+                                                    }, 400);
+                                                }
                                             }}
                                             disabled={role === 'viewonly'}
                                         />

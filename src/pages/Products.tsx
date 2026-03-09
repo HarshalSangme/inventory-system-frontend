@@ -3,6 +3,7 @@ import type { Product, ProductForm } from "../services/productService";
 import type { Category } from "../services/categoryService";
 import {
   getProducts,
+  getNextSku,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -308,21 +309,8 @@ export default function Products() {
     setEditingId(null);
     setLoading(true);
     try {
-      // Fetch latest products to get SKUs
-      const latestProducts = await getProducts();
-      const usedNumbers = new Set(
-        latestProducts.data
-          .map((p: Product) => {
-            const match = p.sku.match(/SKU-(\d+)/i);
-            return match ? parseInt(match[1]) : null;
-          })
-          .filter((n: number | null): n is number => n !== null && !isNaN(n)),
-      );
-      let nextNumber = 1;
-      while (usedNumbers.has(nextNumber)) {
-        nextNumber++;
-      }
-      const nextSKU = `SKU-${String(nextNumber).padStart(3, "0")}`;
+      // Ask the backend for the next unique SKU — DB-level check, no limit, no duplicates
+      const nextSKU = await getNextSku();
       setFormData({
         name: "",
         sku: nextSKU,
@@ -337,7 +325,7 @@ export default function Products() {
       setIsModalOpen(true);
     } catch (error: any) {
       const msg =
-        error?.response?.data?.detail || "Failed to fetch SKUs for new product";
+        error?.response?.data?.detail || "Failed to generate SKU for new product";
       showSnackbar(msg, "error");
     } finally {
       setLoading(false);
