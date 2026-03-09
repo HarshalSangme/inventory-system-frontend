@@ -24,7 +24,8 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import PaymentIcon from '@mui/icons-material/Payment';
 import HistoryIcon from '@mui/icons-material/History';
-import { getInvoices, getInvoiceCounts, downloadInvoicePDF } from '../services/invoiceService';
+import RestartAltIcon from '@mui/icons-material/RestartAlt';
+import { getInvoices, getInvoiceCounts, downloadInvoicePDF, resetInvoicePayments } from '../services/invoiceService';
 import { getAccountsSummary, recordPayment, getPartnerStatement, type LedgerEntry } from '../services/accountService';
 import { getPartners, type Partner } from '../services/partnerService';
 
@@ -99,6 +100,8 @@ export default function Accounts() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetTx, setResetTx] = useState<any>(null);
 
   // Main page tab (Invoices vs Ledger Statement)
   const [mainTab, setMainTab] = useState(0);
@@ -208,8 +211,24 @@ export default function Accounts() {
         loadInvoices(page, invoiceTabValue, debouncedSearch),
         loadCounts(),
       ]);
-      if (selectedPartner && selectedPartner.id === paymentTx.partner_id) fetchStatement(selectedPartner.id);
     } catch { setSnackbar({ open: true, message: 'Failed to record payment', severity: 'error' }); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleResetPayment = async () => {
+    if (!resetTx) return;
+    setSubmitting(true);
+    try {
+      await resetInvoicePayments(resetTx.id);
+      setResetDialogOpen(false);
+      setResetTx(null);
+      setSnackbar({ open: true, message: 'Payments reset — invoice is now unpaid', severity: 'success' });
+      await Promise.all([
+        loadInvoices(page, invoiceTabValue, debouncedSearch),
+        loadCounts(),
+      ]);
+      if (selectedPartner && selectedPartner.id === resetTx.partner_id) fetchStatement(selectedPartner.id);
+    } catch { setSnackbar({ open: true, message: 'Failed to reset payments', severity: 'error' }); }
     finally { setSubmitting(false); }
   };
 
@@ -340,6 +359,9 @@ export default function Accounts() {
                             <Tooltip title="Generate PDF"><IconButton size="small" color="primary" onClick={() => handleOpenPdfDialog(inv)} disabled={role === 'viewonly'}><PictureAsPdfIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                             {(inv.payment_status === 'unpaid' || inv.payment_status === 'partial') && (
                               <Tooltip title="Record Receipt"><IconButton size="small" color="success" onClick={() => handleOpenPayment(inv)} disabled={role === 'viewonly'}><PaymentIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                            )}
+                            {(inv.payment_status === 'paid' || inv.payment_status === 'partial') && role === 'admin' && (
+                              <Tooltip title="Reset Payments"><IconButton size="small" color="warning" onClick={() => { setResetTx(inv); setResetDialogOpen(true); }}><RestartAltIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                             )}
                           </Box>
                         </TableCell>
@@ -652,6 +674,41 @@ export default function Accounts() {
           <Button variant="contained" color="success" onClick={handleRecordPayment} disabled={submitting || !paymentAmount || parseFloat(paymentAmount) <= 0} size="small"
             startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <CheckCircleIcon />}>
             {submitting ? 'Recording...' : 'Confirm Receipt'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ======= RESET PAYMENT CONFIRMATION DIALOG ======= */}
+      <Dialog open={resetDialogOpen} onClose={() => !submitting && setResetDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><RestartAltIcon color="warning" sx={{ fontSize: 18 }} /><Typography fontWeight={600} sx={{ fontSize: 14 }}>Reset Payments</Typography></Box>
+          <IconButton size="small" onClick={() => setResetDialogOpen(false)} disabled={submitting}><CloseIcon /></IconButton>
+        </DialogTitle>
+        <Divider />
+        <DialogContent sx={{ pt: 2 }}>
+          {resetTx && (() => {
+            const { total, paid } = getAmounts(resetTx);
+            return (
+              <Box>
+                <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: '#fff3e0', borderColor: '#ff9800', borderRadius: 1.5 }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>⚠️ This will remove ALL payment records for this invoice</Typography>
+                  <Typography variant="caption" color="text.secondary">The invoice will be marked as <b>UNPAID</b> and amount paid will be reset to 0.</Typography>
+                </Paper>
+                <Grid container spacing={1}>
+                  <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Customer</Typography><Typography fontWeight={600} sx={{ fontSize: 12 }}>{resetTx.partner?.name || '-'}</Typography></Grid>
+                  <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Invoice Total</Typography><Typography fontWeight={600} sx={{ fontSize: 12 }}>{fBHD(total)}</Typography></Grid>
+                  <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>Currently Paid</Typography><Typography fontWeight={600} sx={{ fontSize: 12, color: '#2e7d32' }}>{fBHD(paid)}</Typography></Grid>
+                  <Grid item xs={6}><Typography variant="caption" color="text.secondary" sx={{ fontSize: 10 }}>After Reset</Typography><Typography fontWeight={700} sx={{ fontSize: 12, color: '#d32f2f' }}>BHD 0.000</Typography></Grid>
+                </Grid>
+              </Box>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setResetDialogOpen(false)} disabled={submitting} size="small">Cancel</Button>
+          <Button variant="contained" color="warning" onClick={handleResetPayment} disabled={submitting} size="small"
+            startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <RestartAltIcon />}>
+            {submitting ? 'Resetting...' : 'Confirm Reset'}
           </Button>
         </DialogActions>
       </Dialog>

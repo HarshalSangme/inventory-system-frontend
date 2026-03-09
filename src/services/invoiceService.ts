@@ -63,3 +63,7 @@ export const downloadInvoicePDF = async (transactionId: number, editData: Invoic
   document.body.removeChild(link);
   window.URL.revokeObjectURL(url);
 };
+
+export const resetInvoicePayments = async (transactionId: number): Promise<void> => {
+  await api.delete(`/transactions/${transactionId}/payments`);
+};
