@@ -201,7 +201,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 vat_percent: item.vat_percent
             })),
             payment_method: paymentMethod,
-            amount_paid: amountPaid === '' ? grandTotal : Number(amountPaid)
+            amount_paid: amountPaid === '' ? (paymentMethod === 'Credit' ? 0 : grandTotal) : Number(amountPaid)
         };
         try {
             if (editData && onEdit) {
@@ -666,7 +666,15 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                             <Select
                                 size="small"
                                 value={paymentMethod}
-                                onChange={e => setPaymentMethod(e.target.value)}
+                                onChange={e => {
+                                    const method = e.target.value;
+                                    setPaymentMethod(method);
+                                    if (method === 'Credit') {
+                                        setAmountPaid(0);
+                                    } else if (amountPaid === 0 || amountPaid === '') {
+                                        setAmountPaid('');
+                                    }
+                                }}
                                 sx={{ minWidth: 120, height: 28, fontSize: '0.8rem' }}
                                 disabled={role === 'viewonly'}
                             >
