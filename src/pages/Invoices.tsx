@@ -247,7 +247,7 @@ export default function Accounts() {
   }, [selectedPartner]);
 
   const formatDate = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
-  const fBHD = (n: number) => `BHD ${n.toFixed(3)}`;
+  const fBHD = (n: number) => `BHD ${Math.abs(n).toFixed(3)}`;
   const getInitials = (name: string = '') => name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
 
   return (
@@ -347,7 +347,7 @@ export default function Accounts() {
                         </TableCell>
                         <TableCell align="right">
                           <Typography fontWeight={due > 0 ? 600 : 400} sx={{ fontSize: 12, color: due > 0 ? '#d32f2f' : '#2e7d32' }}>
-                            {due > 0 ? `− ${fBHD(due)}` : '✓ Settled'}
+                            {due > 0 ? fBHD(due) : '✓ Settled'}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">

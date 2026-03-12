@@ -742,7 +742,13 @@ function SalesReportPreview({
                     const nameMatch = item.product?.name?.toLowerCase().includes(searchTerm.toLowerCase());
                     if (!skuMatch && !nameMatch) return;
                 }
-                
+                const gross = item.price * item.quantity;
+                const discount = item.discount || 0;
+                const amtAfterDisc = gross - discount;
+                const vatPercent = item.vat_percent || 0;
+                const vat = amtAfterDisc * (vatPercent / 100);
+                const netAmount = amtAfterDisc + vat;
+
                 flattened.push({
                     id: `${t.id}-${item.product_id}-${iIdx}`,
                     transactionId: t.id,
@@ -750,7 +756,10 @@ function SalesReportPreview({
                     customer: partnerMap[t.partner_id] || 'Unknown',
                     sku: item.product?.sku || '-',
                     itemName: item.product?.name?.toUpperCase() || '-',
-                    amount: item.price * item.quantity,
+                    gross: gross,
+                    discount: discount,
+                    vat: vat,
+                    netAmount: netAmount,
                     paymentMethod: t.payment_method || 'Cash',
                     salesPerson: t.sales_person || '-',
                     status: 'Completed'
@@ -761,13 +770,16 @@ function SalesReportPreview({
     }, [transactions, partnerMap, searchTerm]);
 
     const columns: GridColDef[] = [
-        { field: 'date', headerName: 'Date', width: 140, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
+        { field: 'date', headerName: 'Date', width: 100, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
         { field: 'customer', headerName: 'Customer', flex: 1 },
-        { field: 'sku', headerName: 'SKU', width: 120 },
+        { field: 'sku', headerName: 'SKU', width: 100 },
         { field: 'itemName', headerName: 'Product', flex: 1.5 },
-        { field: 'amount', headerName: 'Amount', width: 110, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
-        { field: 'paymentMethod', headerName: 'Method', width: 110 },
-        { field: 'salesPerson', headerName: 'Sales Person', width: 130 },
+        { field: 'gross', headerName: 'Gross', width: 90, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'discount', headerName: 'Discount', width: 90, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'vat', headerName: 'VAT', width: 80, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'netAmount', headerName: 'Net Amt', width: 100, type: 'number', valueFormatter: (params) => params.value?.toFixed(2) },
+        { field: 'paymentMethod', headerName: 'Method', width: 90 },
+        { field: 'salesPerson', headerName: 'Sales Person', width: 110 },
     ];
 
     return (
