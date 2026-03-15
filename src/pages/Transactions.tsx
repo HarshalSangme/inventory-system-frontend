@@ -82,9 +82,16 @@ export default function Transactions({ type }: TransactionsProps) {
                     ? await getPurchasePdf(selectedTransaction.id)
                     : await getInvoicePdf(selectedTransaction.id);
                 const url = window.URL.createObjectURL(blob);
-                window.open(url, '_blank');
-                // Clean up the URL object after a delay to ensure it loads
-                setTimeout(() => window.URL.revokeObjectURL(url), 100);
+                const link = document.createElement('a');
+                link.href = url;
+                const fileName = selectedTransaction.type === 'purchase' 
+                    ? `purchase_receipt_${selectedTransaction.id}.pdf`
+                    : `invoice_${selectedTransaction.id}.pdf`;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
             } catch (error) {
                 console.error('Failed to print invoice', error);
                 alert('Failed to load invoice. Please try again.');
