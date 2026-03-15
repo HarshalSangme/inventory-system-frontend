@@ -30,7 +30,7 @@ import {
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 
-import { getTransactions, type Transaction, getInvoicePdf } from '../services/transactionService';
+import { getTransactions, type Transaction, getInvoicePdf, getPurchasePdf } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
 
 import CreateTransaction from './CreateTransaction';
@@ -78,7 +78,9 @@ export default function Transactions({ type }: TransactionsProps) {
     const handlePrint = async () => {
         if (selectedTransaction) {
             try {
-                const blob = await getInvoicePdf(selectedTransaction.id);
+                const blob = selectedTransaction.type === 'purchase'
+                    ? await getPurchasePdf(selectedTransaction.id)
+                    : await getInvoicePdf(selectedTransaction.id);
                 const url = window.URL.createObjectURL(blob);
                 window.open(url, '_blank');
                 // Clean up the URL object after a delay to ensure it loads
@@ -308,12 +310,10 @@ export default function Transactions({ type }: TransactionsProps) {
             {/* View Transaction Dialog */}
             <Dialog open={detailModalOpen} onClose={() => setDetailModalOpen(false)} fullWidth maxWidth="md">
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h6">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
-                    {selectedTransaction?.type === 'sale' && (
-                        <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint} disabled={role === 'viewonly'}>
-                            Print Invoice
-                        </Button>
-                    )}
+                    <Typography variant="h6" component="div">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
+                    <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint} disabled={role === 'viewonly'}>
+                        {selectedTransaction?.type === 'purchase' ? 'Print Receipt' : 'Print Invoice'}
+                    </Button>
                 </DialogTitle>
                 <DialogContent dividers>
                     {selectedTransaction && (

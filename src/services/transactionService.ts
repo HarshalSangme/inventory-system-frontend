@@ -79,3 +79,10 @@ export const getInvoicePdf = async (transactionId: number) => {
     });
     return response.data;
 };
+
+export const getPurchasePdf = async (transactionId: number) => {
+    const response = await api.get(`/transactions/${transactionId}/purchase/pdf`, {
+        responseType: 'blob'
+    });
+    return response.data;
+};
