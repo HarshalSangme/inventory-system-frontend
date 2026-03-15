@@ -133,7 +133,7 @@ export default function Accounts() {
       setAccountSummary(summaryRes);
       setPartners(partnerRes.data || []);
       setCounts(countsRes);
-    } catch { /* silent */ }
+    } catch { setSnackbar({ open: true, message: 'Failed to load accounts summary', severity: 'error' }); }
   }, []);
 
   // Load current page of invoices (server-side filtered)
@@ -237,7 +237,10 @@ export default function Accounts() {
     try {
       const data = await getPartnerStatement(partnerId);
       setStatement(data);
-    } catch { console.error('Failed to fetch statement'); }
+      if (data.length === 0) {
+        setSnackbar({ open: true, message: 'No statement entries found for this partner', severity: 'error' });
+      }
+    } catch { setSnackbar({ open: true, message: 'Failed to load partner statement', severity: 'error' }); }
     finally { setLoadingStatement(false); }
   };
 
