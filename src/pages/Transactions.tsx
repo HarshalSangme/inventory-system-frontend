@@ -319,7 +319,7 @@ export default function Transactions({ type }: TransactionsProps) {
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="h6" component="div">{selectedTransaction?.type === 'purchase' ? 'Purchase' : 'Sale'} Details #{selectedTransaction?.id}</Typography>
                     <Button variant="outlined" startIcon={<VisibilityIcon />} onClick={handlePrint} disabled={role === 'viewonly'}>
-                        {selectedTransaction?.type === 'purchase' ? 'Print Receipt' : 'Print Invoice'}
+                        Print Invoice
                     </Button>
                 </DialogTitle>
                 <DialogContent dividers>
@@ -342,6 +342,12 @@ export default function Transactions({ type }: TransactionsProps) {
                                     <Typography variant="subtitle2" color="text.secondary">Sales Person</Typography>
                                     <Typography variant="body1">{selectedTransaction.sales_person || '-'}</Typography>
                                 </Grid>
+                                {selectedTransaction?.type === 'purchase' && (
+                                    <Grid item xs={6} sm={3}>
+                                        <Typography variant="subtitle2" color="text.secondary">Vendor Invoice No</Typography>
+                                        <Typography variant="body1">{selectedTransaction.vendor_invoice_no || '-'}</Typography>
+                                    </Grid>
+                                )}
                                 <Grid item xs={6} sm={3}>
                                     <Typography variant="subtitle2" color="text.secondary">Payment Method</Typography>
                                     <Typography variant="body1">{selectedTransaction.payment_method || '-'}</Typography>

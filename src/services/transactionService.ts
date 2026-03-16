@@ -21,6 +21,7 @@ export interface TransactionCreate {
     amount_paid?: number;
     payment_channel?: string;
     payment_reference?: string;
+    vendor_invoice_no?: string;
 }
 
 export interface Transaction {
@@ -34,6 +35,7 @@ export interface Transaction {
     payment_method?: string;
     amount_paid: number;
     payment_status: 'paid' | 'partial' | 'unpaid';
+    vendor_invoice_no?: string;
     items: TransactionItem[];
 }
 

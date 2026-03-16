@@ -60,6 +60,7 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
         product: item.product
     })) : []);
     const [amountPaid, setAmountPaid] = useState<number | ''>(editData ? editData.amount_paid : '');
+    const [vendorInvoiceNo, setVendorInvoiceNo] = useState<string>(editData?.vendor_invoice_no || '');
     const [submitting, setSubmitting] = useState(false);
     const [loading, setLoading] = useState(false);
     const isFirstMount = useRef(true);
@@ -201,7 +202,8 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                 vat_percent: item.vat_percent
             })),
             payment_method: paymentMethod,
-            amount_paid: amountPaid === '' ? (paymentMethod === 'Credit' ? 0 : grandTotal) : Number(amountPaid)
+            amount_paid: amountPaid === '' ? (paymentMethod === 'Credit' ? 0 : grandTotal) : Number(amountPaid),
+            ...(type === 'purchase' && vendorInvoiceNo ? { vendor_invoice_no: vendorInvoiceNo } : {})
         };
         try {
             if (editData && onEdit) {
@@ -256,6 +258,21 @@ const CreateTransaction: React.FC<CreateTransactionProps> = ({ type, onClose, on
                                 <MenuItem value="Credit">Credit</MenuItem>
                             </Select>
                         </Box>
+
+                        {/* Vendor Invoice Number (Purchases Only) */}
+                        {type === 'purchase' && (
+                            <Box sx={{ mt: 2 }}>
+                                <Typography variant="body2" gutterBottom sx={{ fontWeight: 600 }}>📄 Vendor Invoice No.</Typography>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    placeholder="e.g. INV-2023-001"
+                                    value={vendorInvoiceNo}
+                                    onChange={e => setVendorInvoiceNo(e.target.value)}
+                                    disabled={role === 'viewonly'}
+                                />
+                            </Box>
+                        )}
                 </Grid>
                 {/* VAT input removed, now per-item */}
                 <Grid item xs={6} md={4}>
