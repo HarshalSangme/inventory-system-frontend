@@ -466,7 +466,7 @@ export default function Accounts() {
                         </TableCell>
                         <TableCell align="right" sx={{ fontSize: 11, fontWeight: 500 }}>{Number(entry.amount).toFixed(3)}</TableCell>
                         <TableCell align="right" sx={{ fontSize: 12, fontWeight: 700, color: entry.balance > 0 ? '#d32f2f' : '#2e7d32' }}>
-                          {Number(entry.balance).toFixed(3)} {entry.balance > 0 ? '↑ DUE' : '✓'}
+                          {Math.abs(entry.balance).toFixed(3)} {entry.balance > 0 ? '↑ DUE' : '✓'}
                         </TableCell>
                       </TableRow>
                     ))}
