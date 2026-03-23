@@ -37,6 +37,9 @@ export interface Transaction {
     payment_status: 'paid' | 'partial' | 'unpaid';
     vendor_invoice_no?: string;
     items: TransactionItem[];
+    partner?: {
+        name: string;
+    };
 }
 
 export interface PaginatedResponse<T> {

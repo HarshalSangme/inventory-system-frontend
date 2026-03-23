@@ -335,8 +335,14 @@ export default function Transactions({ type }: TransactionsProps) {
                                     <Typography variant="body1">{new Date(selectedTransaction.date).toLocaleTimeString()}</Typography>
                                 </Grid>
                                 <Grid item xs={6} sm={3}>
-                                    <Typography variant="subtitle2" color="text.secondary">Partner ID</Typography>
-                                    <Typography variant="body1">{selectedTransaction.partner_id}</Typography>
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        {selectedTransaction?.type === 'purchase' ? 'Vendor' : 'Customer'}
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {selectedTransaction?.partner?.name 
+                                            ? `${selectedTransaction.partner.name} (ID: ${selectedTransaction.partner_id})`
+                                            : selectedTransaction?.partner_id}
+                                    </Typography>
                                 </Grid>
                                 <Grid item xs={6} sm={3}>
                                     <Typography variant="subtitle2" color="text.secondary">Sales Person</Typography>
