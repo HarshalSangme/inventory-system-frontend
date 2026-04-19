@@ -3,7 +3,7 @@ import { useUser } from '../context/UserContext';
 import {
     Box, Button, Card, CardContent, Grid, Typography, Chip, Stack, Snackbar, Paper, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, CircularProgress, TextField, InputAdornment
+    TableHead, TableRow, CircularProgress, TextField, InputAdornment, Select, MenuItem, FormControl, InputLabel
 } from '@mui/material';
 import PieChartIcon from '@mui/icons-material/PieChart';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -369,6 +369,56 @@ export default function Reports() {
                             />
                             {(currentReport === 'sales' || currentReport === 'purchase' || currentReport === 'profit') && (
                                 <>
+                                    <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'white' }}>
+                                        <InputLabel>Quick Filter</InputLabel>
+                                        <Select
+                                            label="Quick Filter"
+                                            defaultValue=""
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                const today = new Date();
+                                                let fd = null;
+                                                let td = null;
+                                                if (val === 'today') {
+                                                    fd = td = new Date().toISOString().slice(0, 10);
+                                                } else if (val === 'last7') {
+                                                    const past = new Date();
+                                                    past.setDate(today.getDate() - 7);
+                                                    fd = past.toISOString().slice(0, 10);
+                                                    td = new Date().toISOString().slice(0, 10);
+                                                } else if (val === 'thisMonth') {
+                                                    fd = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
+                                                    // Move forward to the next month using setMonth to correctly handle last day calculation
+                                                    const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+                                                    nextMonthDate.setDate(nextMonthDate.getDate() - 1);
+                                                    td = nextMonthDate.toISOString().slice(0, 10);
+                                                } else if (val === 'lastMonth') {
+                                                    fd = new Date(today.getFullYear(), today.getMonth() - 1, 1).toISOString().slice(0, 10);
+                                                    const currentMonthDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                                                    currentMonthDate.setDate(currentMonthDate.getDate() - 1);
+                                                    td = currentMonthDate.toISOString().slice(0, 10);
+                                                } else if (val === 'thisYear') {
+                                                    fd = new Date(today.getFullYear(), 0, 1).toISOString().slice(0, 10);
+                                                    td = new Date(today.getFullYear(), 11, 31).toISOString().slice(0, 10);
+                                                } else if (val === 'allTime') {
+                                                    fd = null;
+                                                    td = null;
+                                                }
+                                                if (val !== "") {
+                                                    setFromDate(fd);
+                                                    setToDate(td);
+                                                }
+                                            }}
+                                        >
+                                            <MenuItem value="">Custom Range</MenuItem>
+                                            <MenuItem value="today">Today</MenuItem>
+                                            <MenuItem value="last7">Last 7 Days</MenuItem>
+                                            <MenuItem value="thisMonth">This Month</MenuItem>
+                                            <MenuItem value="lastMonth">Last Month</MenuItem>
+                                            <MenuItem value="thisYear">This Year</MenuItem>
+                                            <MenuItem value="allTime">All Time</MenuItem>
+                                        </Select>
+                                    </FormControl>
                                     <TextField
                                         label="From Date"
                                         type="date"
