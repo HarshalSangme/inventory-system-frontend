@@ -19,7 +19,7 @@ import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, Cartes
 import { getProducts, type Product } from '../services/productService';
 import { getTransactions, type Transaction } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
-import { exportReport } from '../services/reportService';
+import { exportReport, getProfitPreview } from '../services/reportService';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
 
@@ -68,6 +68,7 @@ export default function Reports() {
     const [products, setProducts] = useState<Product[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
+    const [profitData, setProfitData] = useState<any[]>([]);
 
     const reports = [
         { id: 'stock' as ReportType, name: 'Stock Report', description: 'Current stock levels and value', type: 'Inventory', icon: BarChartIcon, color: '#2196f3' },
@@ -102,13 +103,9 @@ export default function Reports() {
                 setProducts(productsData.data);
                 setTotal(productsData.total);
             } else if (currentReport === 'profit') {
-                [productsData, transactionsData] = await Promise.all([
-                    getProducts(0, 1000),
-                    getTransactions(0, 1000, undefined, fDate, tDate)
-                ]);
-                setProducts(productsData.data);
-                setTransactions(transactionsData.data);
-                setTotal(1);
+                const profitPreview = await getProfitPreview(fDate, tDate, debouncedSearch);
+                setProfitData(profitPreview);
+                setTotal(profitPreview.length);
             }
 
             // Always ensure partners are loaded for mapping
@@ -166,115 +163,6 @@ export default function Reports() {
         }
     };
 
-    const getReportData = (reportId: ReportType) => {
-        try {
-            switch (reportId) {
-                case 'stock': {
-                    if (!products || products.length === 0) return [];
-                    const filtered = products.filter(p =>
-                        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-                    );
-                    return filtered.map(p => ({
-                        'Product Name': p.name,
-                        'SKU': p.sku,
-                        'Category': p.category?.name || '-',
-                        'Stock Quantity': p.stock_quantity,
-                        'Unit Cost': p.cost_price.toFixed(2),
-                        'Unit Price': p.price.toFixed(2),
-                        'Stock Value (Cost)': (p.stock_quantity * p.cost_price).toFixed(2),
-                        'Stock Value (Retail)': (p.stock_quantity * p.price).toFixed(2),
-                        'Status': p.stock_quantity < p.min_stock_level ? 'Low Stock' : 'In Stock'
-                    }));
-                }
-                case 'sales': {
-                    if (!transactions || transactions.length === 0) return [];
-                    const sales = transactions.filter(t => t.type === 'sale');
-                    if (sales.length === 0) return [];
-                    const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-                    return sales.map((t, idx) => {
-                        let itemName = '-';
-                        let skuCode = '-';
-                        if (t.items && t.items.length > 0) {
-                            const item = t.items[0];
-                            skuCode = (item.product && item.product.sku) ? item.product.sku : '-';
-                            itemName = (item.product && item.product.name) ? item.product.name : '-';
-                        }
-                        return {
-                            'Sr. No.': idx + 1,
-                            'Date': new Date(t.date).toLocaleDateString(),
-                            'Customer': partnerMap[t.partner_id] || 'Unknown',
-                            'SKU Code': skuCode,
-                            'Item Name': itemName,
-                            'Amount': t.total_amount.toFixed(2),
-                            'Payment Method': t.payment_method || '-',
-                            'Sales Person': t.sales_person || '-',
-                            'Status': 'Completed',
-                        };
-                    });
-                }
-                case 'purchase': {
-                    if (!transactions || transactions.length === 0) return [];
-                    const purchases = transactions.filter(t => t.type === 'purchase');
-                    if (purchases.length === 0) return [];
-                    const partnerMap = Object.fromEntries(partners.map(p => [p.id, p.name]));
-                    const filtered = purchases.filter(p => {
-                        const partnerName = partnerMap[p.partner_id] || 'Unknown';
-                        return partnerName.toLowerCase().includes(searchTerm.toLowerCase());
-                    });
-                    return filtered.map(t => ({
-                        'Date': new Date(t.date).toLocaleDateString(),
-                        'Vendor': partnerMap[t.partner_id] || 'Unknown',
-                        'Total Amount': t.total_amount.toFixed(2),
-                        'VAT %': t.vat_percent || 0,
-                        'Items': t.items?.length || 0
-                    }));
-                }
-                case 'profit': {
-                    if (!transactions || transactions.length === 0) return [];
-                    const sales = transactions.filter(t => t.type === 'sale');
-                    const purchases = transactions.filter(t => t.type === 'purchase');
-
-                    const totalRevenue = sales.reduce((sum, t) => sum + t.total_amount, 0);
-
-                    // Calculate COGS (Cost of Goods Sold)
-                    // Iterate through all sales items and sum (quantity * product.cost_price)
-                    // Note: This uses CURRENT cost price, which is an approximation if cost price changed over time
-                    let totalCOGS = 0;
-
-                    sales.forEach(transaction => {
-                        transaction.items.forEach(item => {
-                            const product = products.find(p => p.id === item.product_id);
-                            if (product) {
-                                totalCOGS += item.quantity * product.cost_price;
-                            }
-                        });
-                    });
-
-                    const profit = totalRevenue - totalCOGS;
-                    const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
-
-                    // Also useful metrics
-                    const totalInventoryPurchase = purchases.reduce((sum, t) => sum + t.total_amount, 0);
-
-                    return [{
-                        'Total Sales Revenue': totalRevenue.toFixed(2),
-                        'Total COGS': totalCOGS.toFixed(2),
-                        'Gross Profit': profit.toFixed(2),
-                        'Profit Margin %': margin.toFixed(2),
-                        'Sales Transactions': sales.length,
-                        'Inventory Purchases': totalInventoryPurchase.toFixed(2)
-                    }];
-                }
-                default:
-                    return [];
-            }
-        } catch (error) {
-            console.error('Error generating report data:', error);
-            return [];
-        }
-    };
-
     const renderPreviewContent = () => {
         if (loading && total === 0) return (
             <Box display="flex" justifyContent="center" alignItems="center" p={4}>
@@ -324,8 +212,7 @@ export default function Reports() {
                     />
                 );
             case 'profit':
-                // Profit & Loss doesn't have server-side pagination yet in backend, using client data
-                return <ProfitLossPreview data={getReportData('profit')} transactions={transactions} />;
+                return <ProfitLossPreview data={profitData} />;
             default:
                 return null;
         }
@@ -1015,19 +902,33 @@ function PurchaseReportPreview({
 }
 
 // Profit & Loss Preview Component
-function ProfitLossPreview({ data, transactions }: { data: any[], transactions: Transaction[] }) {
-    const sales = transactions.filter(t => t.type === 'sale');
+function ProfitLossPreview({ data }: { data: any[] }) {
+    // Extract Grand Total and Categories
+    const validData = data.filter(d => d.Category !== 'GRAND TOTAL');
+    const grandTotalRow = data.find(d => d.Category === 'GRAND TOTAL');
 
-    const reportData = data[0] || {};
-    const totalRevenue = parseFloat(reportData['Total Sales Revenue'] || '0');
-    const totalCOGS = parseFloat(reportData['Total COGS'] || '0');
-    const profit = parseFloat(reportData['Gross Profit'] || '0');
+    const totalRevenue = grandTotalRow ? grandTotalRow['Sales Revenue'] : validData.reduce((sum, d) => sum + (d['Sales Revenue'] || 0), 0);
+    const totalCOGS = grandTotalRow ? grandTotalRow['Total COGS'] : validData.reduce((sum, d) => sum + (d['Total COGS'] || 0), 0);
+    const profit = grandTotalRow ? grandTotalRow['Gross Profit'] : validData.reduce((sum, d) => sum + (d['Gross Profit'] || 0), 0);
     const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
 
-    const chartData = [
+    const chartDataCategories = [...validData]
+        .sort((a, b) => b['Sales Revenue'] - a['Sales Revenue'])
+        .slice(0, 5)
+        .map((d, index) => ({ name: d.Category.length > 15 ? d.Category.substring(0, 15) + '...' : d.Category, value: d['Sales Revenue'], fill: COLORS[index % COLORS.length] }));
+
+    const chartDataOverall = [
         { name: 'Sales Revenue', value: totalRevenue, fill: '#4caf50' },
         { name: 'Cost of Goods Sold', value: totalCOGS, fill: '#f44336' }
     ];
+
+    if (!data || data.length === 0) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+                <Typography color="text.secondary">No profit data available for the selected period.</Typography>
+            </Box>
+        );
+    }
 
     return (
         <Box>
@@ -1038,12 +939,9 @@ function ProfitLossPreview({ data, transactions }: { data: any[], transactions: 
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <TrendingUpIcon sx={{ color: '#4caf50' }} />
-                                <Typography variant="body2" color="text.secondary">Total Revenue</Typography>
+                                <Typography variant="body2" color="text.secondary">Total Sales Revenue</Typography>
                             </Box>
-                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#4caf50' }}>
-                                {totalRevenue.toFixed(2)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">{sales.length} transactions</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#4caf50' }}>{totalRevenue.toFixed(2)}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -1052,12 +950,9 @@ function ProfitLossPreview({ data, transactions }: { data: any[], transactions: 
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Box display="flex" alignItems="center" gap={1} mb={1}>
                                 <TrendingDownIcon sx={{ color: '#f44336' }} />
-                                <Typography variant="body2" color="text.secondary">Cost of Goods Sold (COGS)</Typography>
+                                <Typography variant="body2" color="text.secondary">Total COGS</Typography>
                             </Box>
-                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#f44336' }}>
-                                {totalCOGS.toFixed(2)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">Based on products sold</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#f44336' }}>{totalCOGS.toFixed(2)}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -1065,43 +960,33 @@ function ProfitLossPreview({ data, transactions }: { data: any[], transactions: 
                     <Card sx={{ bgcolor: 'white', border: `2px solid ${profit >= 0 ? '#00897b' : '#f44336'}`, height: '100%' }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Gross Profit</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 400, color: profit >= 0 ? '#00897b' : '#f44336' }}>
-                                {profit.toFixed(2)}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 'auto' }}>
-                                {profit >= 0 ? 'Profitable' : 'Loss'}
-                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: profit >= 0 ? '#00897b' : '#f44336' }}>{profit.toFixed(2)}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
                 <Grid item xs={12} sm={3}>
                     <Card sx={{ bgcolor: 'white', border: '2px solid #2196f3', height: '100%' }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Profit Margin</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>
-                                {margin.toFixed(1)}%
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 'auto' }}>
-                                {margin > 20 ? 'Excellent' : margin > 10 ? 'Good' : 'Low'}
-                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Profit Margin %</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>{margin.toFixed(2)}%</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
             </Grid>
 
             {/* Charts */}
-            <Grid container spacing={2} sx={{ mb: 2 }}>
+            <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid item xs={12} md={6}>
-                    <Card sx={{ p: 2, bgcolor: 'white' }}>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Revenue vs Cost</Typography>
+                    <Card sx={{ p: 2, bgcolor: 'white', height: '100%' }}>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Overall Revenue vs COGS</Typography>
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={chartData}>
+                            <BarChart data={chartDataOverall}>
                                 <CartesianGrid strokeDasharray="3 3" />
                                 <XAxis dataKey="name" />
                                 <YAxis />
                                 <Tooltip />
-                                <Bar dataKey="value" fill="#2196f3">
-                                    {chartData.map((entry, index) => (
+                                <Bar dataKey="value">
+                                    {chartDataOverall.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.fill} />
                                     ))}
                                 </Bar>
@@ -1110,54 +995,97 @@ function ProfitLossPreview({ data, transactions }: { data: any[], transactions: 
                     </Card>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                    <Card sx={{ p: 2, bgcolor: 'white' }}>
-                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Financial Breakdown</Typography>
+                    <Card sx={{ p: 2, bgcolor: 'white', height: '100%' }}>
+                        <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Top 5 Categories (Revenue)</Typography>
                         <ResponsiveContainer width="100%" height={300}>
                             <RechartsPie>
                                 <Pie
-                                    data={chartData}
+                                    data={chartDataCategories}
                                     cx="50%"
                                     cy="50%"
                                     labelLine={false}
-                                    label={(entry) => `${entry.name}: ${entry.value.toFixed(2)}`}
+                                    label={(entry) => `${entry.name}: ${entry.value.toFixed(0)}`}
                                     outerRadius={100}
                                     fill="#8884d8"
                                     dataKey="value"
                                 >
-                                    {chartData.map((entry, index) => (
+                                    {chartDataCategories.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.fill} />
                                     ))}
                                 </Pie>
-                                <Tooltip />
+                                <Tooltip formatter={(value: any) => Number(value).toFixed(2)} />
                             </RechartsPie>
                         </ResponsiveContainer>
                     </Card>
                 </Grid>
             </Grid>
 
-            {/* Detailed Table */}
+            {/* Detailed Category-Wise Data Table (Spreadsheet Mockup Alignment) */}
             <Card sx={{ bgcolor: 'white' }}>
                 <CardContent>
-                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 400 }}>Financial Summary</Typography>
-                    <TableContainer>
-                        <Table>
+                    <Box sx={{ bgcolor: '#ffff00', p: 1.5, textAlign: 'center', mb: 0, border: '1px solid black', borderBottom: 'none' }}>
+                        <Typography variant="h6" fontWeight="bold" sx={{ color: 'black' }}>PROFIT AND LOSS PREVIEW</Typography>
+                    </Box>
+                    <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid black', borderRadius: 0 }}>
+                        <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ bgcolor: '#f9f9f9' }}>
-                                    {Object.keys(data[0] || {}).map((key) => (
-                                        <TableCell key={key} sx={{ fontWeight: 400 }}>{key}</TableCell>
-                                    ))}
+                                <TableRow sx={{ borderBottom: '2px solid black', '& th': { borderRight: '1px solid rgba(224, 224, 224, 1)', textAlign: 'center' } }}>
+                                    <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>Total Sales Revenue</TableCell>
+                                    <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>Total COGS</TableCell>
+                                    <TableCell rowSpan={2} sx={{ fontWeight: 'bold', fontSize: '1rem', color: 'black' }}>Gross<br/>Profit</TableCell>
+                                    <TableCell rowSpan={2} sx={{ fontWeight: 'bold', fontSize: '1rem', color: 'black' }}>Profit Margin<br/>%</TableCell>
+                                    <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black', borderRight: 'none' }}>Total STOCK IN HAND</TableCell>
+                                </TableRow>
+                                <TableRow sx={{ '& th': { borderBottom: '2px solid black', borderRight: '1px solid rgba(224, 224, 224, 1)' } }}>
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>SALES REVENUE - CATEGORY WISE</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right' }}>AMT</TableCell>
+                                    
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>COGS CATEGORY WISE</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right' }}>AMT</TableCell>
+                                    
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>STOCK CATEGORY WISE</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right', borderRight: 'none' }}>AMT</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {data.map((row, idx) => (
-                                    <TableRow key={idx}>
-                                        {Object.values(row).map((value: any, i) => (
-                                            <TableCell key={i} sx={{ fontWeight: 400, fontSize: '1.1rem' }}>
-                                                {value}
-                                            </TableCell>
-                                        ))}
+                                {validData.map((row, idx) => (
+                                    <TableRow key={idx} sx={{ '& td': { borderRight: '1px solid rgba(224, 224, 224, 1)', py: 1.5 } }}>
+                                        <TableCell align="left" sx={{ color: '#333' }}>{row.Category}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{row['Sales Revenue'].toFixed(2)}</TableCell>
+                                        
+                                        <TableCell align="left" sx={{ color: '#333' }}>{row.Category}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{row['Total COGS'].toFixed(2)}</TableCell>
+                                        
+                                        <TableCell align="center" sx={{ fontWeight: 'bold', color: row['Gross Profit'] >= 0 ? '#00897b' : '#f44336' }}>
+                                            {row['Gross Profit'].toFixed(2)}
+                                        </TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>
+                                            {row['Profit Margin %'].toFixed(2)}%
+                                        </TableCell>
+                                        
+                                        <TableCell align="left" sx={{ color: '#333' }}>{row.Category}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', borderRight: 'none' }}>{row['Total STOCK IN HAND'].toFixed(2)}</TableCell>
                                     </TableRow>
                                 ))}
+                                {grandTotalRow && (
+                                    <TableRow sx={{ bgcolor: '#f9f9f9', '& td': { borderRight: '1px solid rgba(224, 224, 224, 1)', py: 2, borderTop: '2px solid black' } }}>
+                                        <TableCell align="left" sx={{ fontWeight: 'bold', color: 'black' }}>GRAND TOTAL</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#4caf50', fontSize: '1.05rem' }}>{grandTotalRow['Sales Revenue'].toFixed(2)}</TableCell>
+                                        
+                                        <TableCell align="left" sx={{ fontWeight: 'bold', color: 'black' }}>GRAND TOTAL</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#f44336', fontSize: '1.05rem' }}>{grandTotalRow['Total COGS'].toFixed(2)}</TableCell>
+                                        
+                                        <TableCell align="center" sx={{ fontWeight: 'bold', color: grandTotalRow['Gross Profit'] >= 0 ? '#00897b' : '#f44336', fontSize: '1.1rem' }}>
+                                            {grandTotalRow['Gross Profit'].toFixed(2)}
+                                        </TableCell>
+                                        <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                                            {grandTotalRow['Profit Margin %'].toFixed(2)}%
+                                        </TableCell>
+                                        
+                                        <TableCell align="left" sx={{ fontWeight: 'bold', color: 'black' }}>GRAND TOTAL</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#2196f3', fontSize: '1.05rem', borderRight: 'none' }}>{grandTotalRow['Total STOCK IN HAND'].toFixed(2)}</TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>
