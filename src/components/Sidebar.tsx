@@ -29,6 +29,7 @@ const items = [
     { icon: <StorefrontIcon />, label: 'Products', path: '/products' },
     { icon: <SellIcon />, label: 'Sales', path: '/sales' },
     { icon: <ShoppingCartIcon />, label: 'Purchases', path: '/purchases' },
+    { icon: <AccountBalanceWalletIcon />, label: 'Expenses', path: '/expenses' },
     { icon: <BarChartIcon />, label: 'Reports', path: '/reports' },
 ];
 

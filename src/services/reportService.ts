@@ -20,5 +20,6 @@ export const getProfitPreview = async (fromDate?: string, toDate?: string, searc
     if (search) params.search = search;
 
     const response = await api.get(`/reports/profit`, { params });
-    return response.data.data;
+    return response.data;
+    // Expected to return: { data: { profit_data: [...], operating_expenses: [...], total_operating_expenses: ... } }
 };

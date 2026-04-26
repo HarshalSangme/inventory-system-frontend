@@ -952,15 +952,27 @@ function PurchaseReportPreview({
 }
 
 // Profit & Loss Preview Component
-function ProfitLossPreview({ data }: { data: any[] }) {
-    // Extract Grand Total and Categories
-    const validData = data.filter(d => d.Category !== 'GRAND TOTAL');
-    const grandTotalRow = data.find(d => d.Category === 'GRAND TOTAL');
+function ProfitLossPreview({ data }: { data: any }) {
+    if (!data || !data.profit_data || data.profit_data.length === 0) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" p={4}>
+                <Typography color="text.secondary">No profit data available for the selected period.</Typography>
+            </Box>
+        );
+    }
 
-    const totalRevenue = grandTotalRow ? grandTotalRow['Sales Revenue'] : validData.reduce((sum, d) => sum + (d['Sales Revenue'] || 0), 0);
-    const totalCOGS = grandTotalRow ? grandTotalRow['Total COGS'] : validData.reduce((sum, d) => sum + (d['Total COGS'] || 0), 0);
-    const profit = grandTotalRow ? grandTotalRow['Gross Profit'] : validData.reduce((sum, d) => sum + (d['Gross Profit'] || 0), 0);
-    const margin = totalRevenue > 0 ? ((profit / totalRevenue) * 100) : 0;
+    const profitDataList = data.profit_data;
+    const expenseDataList = data.operating_expenses || [];
+    const totalOperatingExpenses = data.total_operating_expenses || 0.0;
+
+    // Extract Grand Total and Categories
+    const validData = profitDataList.filter((d: any) => d.Category !== 'GRAND TOTAL');
+    const grandTotalRow = profitDataList.find((d: any) => d.Category === 'GRAND TOTAL');
+
+    const totalRevenue = grandTotalRow ? grandTotalRow['Sales Revenue'] : validData.reduce((sum: number, d: any) => sum + (d['Sales Revenue'] || 0), 0);
+    const totalCOGS = grandTotalRow ? grandTotalRow['Total COGS'] : validData.reduce((sum: number, d: any) => sum + (d['Total COGS'] || 0), 0);
+    const profit = grandTotalRow ? grandTotalRow['Gross Profit'] : validData.reduce((sum: number, d: any) => sum + (d['Gross Profit'] || 0), 0);
+    const netProfit = profit - totalOperatingExpenses;
 
     const chartDataCategories = [...validData]
         .sort((a, b) => b['Sales Revenue'] - a['Sales Revenue'])
@@ -969,16 +981,9 @@ function ProfitLossPreview({ data }: { data: any[] }) {
 
     const chartDataOverall = [
         { name: 'Sales Revenue', value: totalRevenue, fill: '#4caf50' },
-        { name: 'Cost of Goods Sold', value: totalCOGS, fill: '#f44336' }
+        { name: 'Cost of Goods Sold', value: totalCOGS, fill: '#f44336' },
+        { name: 'Operating Expenses', value: totalOperatingExpenses, fill: '#ff9800' }
     ];
-
-    if (!data || data.length === 0) {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" p={4}>
-                <Typography color="text.secondary">No profit data available for the selected period.</Typography>
-            </Box>
-        );
-    }
 
     return (
         <Box>
@@ -1006,7 +1011,7 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={3}>
+                <Grid item xs={12} sm={2.4}>
                     <Card sx={{ bgcolor: 'white', border: `2px solid ${profit >= 0 ? '#00897b' : '#f44336'}`, height: '100%' }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Gross Profit</Typography>
@@ -1014,11 +1019,19 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                         </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={3}>
-                    <Card sx={{ bgcolor: 'white', border: '2px solid #2196f3', height: '100%' }}>
+                <Grid item xs={12} sm={2.4}>
+                    <Card sx={{ bgcolor: 'white', border: '2px solid #ff9800', height: '100%' }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Profit Margin %</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#2196f3' }}>{margin.toFixed(2)}%</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Operating Exp</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: '#ff9800' }}>{totalOperatingExpenses.toFixed(2)}</Typography>
+                        </CardContent>
+                    </Card>
+                </Grid>
+                <Grid item xs={12} sm={2.4}>
+                    <Card sx={{ bgcolor: 'white', border: `2px solid ${netProfit >= 0 ? '#2196f3' : '#f44336'}`, height: '100%' }}>
+                        <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Net Profit</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 400, color: netProfit >= 0 ? '#2196f3' : '#f44336' }}>{netProfit.toFixed(2)}</Typography>
                         </CardContent>
                     </Card>
                 </Grid>
@@ -1083,7 +1096,8 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                                     <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>Total Sales Revenue</TableCell>
                                     <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>Total COGS</TableCell>
                                     <TableCell rowSpan={2} sx={{ fontWeight: 'bold', fontSize: '1rem', color: 'black' }}>Gross<br/>Profit</TableCell>
-                                    <TableCell rowSpan={2} sx={{ fontWeight: 'bold', fontSize: '1rem', color: 'black' }}>Profit Margin<br/>%</TableCell>
+                                    <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>Operating Expenses</TableCell>
+                                    <TableCell rowSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black' }}>NET<br/>PROFIT</TableCell>
                                     <TableCell colSpan={2} sx={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'black', borderRight: 'none' }}>Total STOCK IN HAND</TableCell>
                                 </TableRow>
                                 <TableRow sx={{ '& th': { borderBottom: '2px solid black', borderRight: '1px solid rgba(224, 224, 224, 1)' } }}>
@@ -1093,13 +1107,18 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                                     <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>COGS CATEGORY WISE</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right' }}>AMT</TableCell>
                                     
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>EXPENSE CATEGORY</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right' }}>AMT</TableCell>
+
                                     <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'left' }}>STOCK CATEGORY WISE</TableCell>
                                     <TableCell sx={{ fontWeight: 'bold', fontSize: '0.8rem', color: 'black', align: 'right', borderRight: 'none' }}>AMT</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {validData.map((row, idx) => (
-                                    <TableRow key={idx} sx={{ '& td': { borderRight: '1px solid rgba(224, 224, 224, 1)', py: 1.5 } }}>
+                                {validData.map((row: any, idx: number) => {
+                                    const expRow = expenseDataList[idx] || null;
+                                    return (
+                                    <TableRow key={`pnl-${idx}`} sx={{ '& td': { borderRight: '1px solid rgba(224, 224, 224, 1)', py: 1.5 } }}>
                                         <TableCell align="left" sx={{ color: '#333' }}>{row.Category}</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 'bold' }}>{row['Sales Revenue'].toFixed(2)}</TableCell>
                                         
@@ -1109,12 +1128,38 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                                         <TableCell align="center" sx={{ fontWeight: 'bold', color: row['Gross Profit'] >= 0 ? '#00897b' : '#f44336' }}>
                                             {row['Gross Profit'].toFixed(2)}
                                         </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>
-                                            {row['Profit Margin %'].toFixed(2)}%
-                                        </TableCell>
+
+                                        {/* Expense Columns */}
+                                        <TableCell align="left" sx={{ color: '#333' }}>{expRow ? expRow['Expense Category'] : '-'}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ff9800' }}>{expRow ? expRow['Amount'].toFixed(2) : '-'}</TableCell>
+
+                                        {/* Blank space for inner Net Profit since it's global usually, but we keep structure intact */}
+                                        <TableCell align="center">-</TableCell>
                                         
                                         <TableCell align="left" sx={{ color: '#333' }}>{row.Category}</TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 'bold', borderRight: 'none' }}>{row['Total STOCK IN HAND'].toFixed(2)}</TableCell>
+                                    </TableRow>
+                                    );
+                                })}
+
+                                {/* Check if there are more expenses than validData rows */}
+                                {expenseDataList.length > validData.length && expenseDataList.slice(validData.length).map((expRow: any, extraIdx: number) => (
+                                    <TableRow key={`exp-extra-${extraIdx}`} sx={{ '& td': { borderRight: '1px solid rgba(224, 224, 224, 1)', py: 1.5 } }}>
+                                        <TableCell align="left" sx={{ color: '#333' }}>-</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>-</TableCell>
+                                        
+                                        <TableCell align="left" sx={{ color: '#333' }}>-</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>-</TableCell>
+                                        
+                                        <TableCell align="center" sx={{ fontWeight: 'bold' }}>-</TableCell>
+
+                                        <TableCell align="left" sx={{ color: '#333' }}>{expRow['Expense Category']}</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ff9800' }}>{expRow['Amount'].toFixed(2)}</TableCell>
+
+                                        <TableCell align="center">-</TableCell>
+                                        
+                                        <TableCell align="left" sx={{ color: '#333' }}>-</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', borderRight: 'none' }}>-</TableCell>
                                     </TableRow>
                                 ))}
                                 {grandTotalRow && (
@@ -1128,8 +1173,12 @@ function ProfitLossPreview({ data }: { data: any[] }) {
                                         <TableCell align="center" sx={{ fontWeight: 'bold', color: grandTotalRow['Gross Profit'] >= 0 ? '#00897b' : '#f44336', fontSize: '1.1rem' }}>
                                             {grandTotalRow['Gross Profit'].toFixed(2)}
                                         </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                                            {grandTotalRow['Profit Margin %'].toFixed(2)}%
+
+                                        <TableCell align="left" sx={{ fontWeight: 'bold', color: 'black' }}>TOTAL EXPENSES</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ff9800', fontSize: '1.05rem' }}>{totalOperatingExpenses.toFixed(2)}</TableCell>
+                                        
+                                        <TableCell align="center" sx={{ fontWeight: 'bold', color: netProfit >= 0 ? '#2196f3' : '#f44336', fontSize: '1.15rem' }}>
+                                            {netProfit.toFixed(2)}
                                         </TableCell>
                                         
                                         <TableCell align="left" sx={{ fontWeight: 'bold', color: 'black' }}>GRAND TOTAL</TableCell>
