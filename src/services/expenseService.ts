@@ -29,6 +29,16 @@ export const createExpenseCategory = async (category: any) => {
     return response.data;
 };
 
+export const updateExpenseCategory = async (id: number, category: any) => {
+    const response = await api.put(`/expense-categories/${id}`, category);
+    return response.data;
+};
+
+export const deleteExpenseCategory = async (id: number) => {
+    const response = await api.delete(`/expense-categories/${id}`);
+    return response.data;
+};
+
 export const getExpenses = async (skip = 0, limit = 100, search?: string) => {
     const params: any = { skip, limit };
     if (search) params.search = search;
@@ -38,6 +48,11 @@ export const getExpenses = async (skip = 0, limit = 100, search?: string) => {
 
 export const createExpense = async (expense: any) => {
     const response = await api.post('/expenses', expense);
+    return response.data;
+};
+
+export const updateExpense = async (id: number, expense: any) => {
+    const response = await api.put(`/expenses/${id}`, expense);
     return response.data;
 };
 
