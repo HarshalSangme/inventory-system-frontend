@@ -39,9 +39,11 @@ export const deleteExpenseCategory = async (id: number) => {
     return response.data;
 };
 
-export const getExpenses = async (skip = 0, limit = 100, search?: string) => {
+export const getExpenses = async (skip = 0, limit = 100, search?: string, fromDate?: string, toDate?: string) => {
     const params: any = { skip, limit };
     if (search) params.search = search;
+    if (fromDate) params.from_date = fromDate;
+    if (toDate) params.to_date = toDate;
     const response = await api.get('/expenses', { params });
     return response.data;
 };

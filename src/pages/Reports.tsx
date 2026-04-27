@@ -19,11 +19,13 @@ import { BarChart, Bar, PieChart as RechartsPie, Pie, Cell, XAxis, YAxis, Cartes
 import { getProducts, type Product } from '../services/productService';
 import { getTransactions, type Transaction } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
+import { getExpenses, type Expense } from '../services/expenseService';
 import { exportReport, getProfitPreview } from '../services/reportService';
 import { DataGrid } from '@mui/x-data-grid';
 import type { GridColDef } from '@mui/x-data-grid';
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 
-type ReportType = 'stock' | 'sales' | 'purchase' | 'profit';
+type ReportType = 'stock' | 'sales' | 'purchase' | 'profit' | 'expense';
 
 const COLORS = ['#2196f3', '#4caf50', '#ff9800', '#f44336', '#00897b', '#00bcd4', '#ff5722', '#3f51b5'];
 
@@ -68,6 +70,7 @@ export default function Reports() {
     const [products, setProducts] = useState<Product[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [partners, setPartners] = useState<Partner[]>([]);
+    const [expenses, setExpenses] = useState<Expense[]>([]);
     const [profitData, setProfitData] = useState<any[]>([]);
 
     const reports = [
@@ -75,6 +78,7 @@ export default function Reports() {
         { id: 'sales' as ReportType, name: 'Sales Report', description: 'Sales by customer and product', type: 'Sales', icon: PieChartIcon, color: '#4caf50' },
         { id: 'purchase' as ReportType, name: 'Purchase Report', description: 'Purchase history and vendor stats', type: 'Purchases', icon: BarChartIcon, color: '#ff9800' },
         { id: 'profit' as ReportType, name: 'Profit & Loss', description: 'Revenue vs Cost analysis', type: 'Financial', icon: TrendingUpIcon, color: '#00897b' },
+        { id: 'expense' as ReportType, name: 'Expense Report', description: 'Date-wise operating expenses', type: 'Financial', icon: AccountBalanceWalletIcon, color: '#e91e63' },
     ];
 
     const loadData = async () => {
@@ -106,6 +110,11 @@ export default function Reports() {
                 const profitPreview = await getProfitPreview(fDate, tDate, debouncedSearch);
                 setProfitData(profitPreview);
                 setTotal(profitPreview.length);
+            } else if (currentReport === 'expense') {
+                // pass skip=0, limit=10000 to get virtually all records for preview
+                const expensesData = await getExpenses(0, 10000, debouncedSearch, fDate, tDate);
+                setExpenses(expensesData.data || expensesData);
+                setTotal(expensesData.total || expensesData.length || 0);
             }
 
             // Always ensure partners are loaded for mapping
@@ -213,6 +222,8 @@ export default function Reports() {
                 );
             case 'profit':
                 return <ProfitLossPreview data={profitData} />;
+            case 'expense':
+                return <ExpenseReportPreview expenses={expenses} />;
             default:
                 return null;
         }
@@ -1221,3 +1232,40 @@ function ProfitLossPreview({ data }: { data: any }) {
     );
 }
 
+// --- Sub-components for Preview Table Views ---
+
+function ExpenseReportPreview({ expenses }: { expenses: Expense[] }) {
+    const columns: GridColDef[] = [
+        { field: 'date', headerName: 'Date', width: 110, valueFormatter: (params) => new Date(params.value).toLocaleDateString() },
+        { field: 'voucher_no', headerName: 'Voucher No', width: 130 },
+        { 
+            field: 'category_id', 
+            headerName: 'Category', 
+            width: 150,
+            valueGetter: (params) => params.row.category?.name || `Cat #${params.row.category_id}`
+        },
+        { field: 'description', headerName: 'Description', flex: 1 },
+        { field: 'payment_mode', headerName: 'Py. Mode', width: 100 },
+        { field: 'amount', headerName: 'Amount', width: 120, valueFormatter: (params) => `${Number(params.value).toFixed(3)}` },
+    ];
+    
+    const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
+
+    return (
+        <Box sx={{ height: 600, width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+                <Typography variant="h6" color="#2196f3" fontWeight="bold">
+                    Total Amount: {totalAmount.toFixed(3)}
+                </Typography>
+            </Box>
+            <DataGrid
+                rows={expenses}
+                columns={columns}
+                density="compact"
+                disableRowSelectionOnClick
+                hideFooter
+                sx={{ flexGrow: 1 }}
+            />
+        </Box>
+    );
+}
