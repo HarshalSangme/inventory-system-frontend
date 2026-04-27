@@ -108,8 +108,9 @@ export default function Reports() {
                 setTotal(productsData.total);
             } else if (currentReport === 'profit') {
                 const profitPreview = await getProfitPreview(fDate, tDate, debouncedSearch);
-                setProfitData(profitPreview);
-                setTotal(profitPreview.length);
+                const actualProfitData = profitPreview.data || profitPreview;
+                setProfitData(actualProfitData);
+                setTotal(actualProfitData?.profit_data?.length || 0);
             } else if (currentReport === 'expense') {
                 // pass skip=0, limit=10000 to get virtually all records for preview
                 const expensesData = await getExpenses(0, 10000, debouncedSearch, fDate, tDate);
