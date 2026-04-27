@@ -1188,6 +1188,33 @@ function ProfitLossPreview({ data }: { data: any }) {
                             </TableBody>
                         </Table>
                     </TableContainer>
+
+                    {/* Net Profit Summary Matrix (from User Screenshot Requirements) */}
+                    <Box sx={{ mt: 4, width: '100%', maxWidth: '800px', mx: 'auto', border: '2px solid black' }}>
+                        <Box sx={{ bgcolor: '#d0e0ff', p: 1, textAlign: 'center', borderBottom: '2px solid black' }}>
+                            <Typography variant="h6" fontWeight="bold" sx={{ color: 'black' }}>NET PROFIT</Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', width: '100%' }}>
+                            {/* Gross Profit Block */}
+                            <Box sx={{ flex: 1, bgcolor: '#ffff00', p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRight: '2px solid black' }}>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>GROSS PROFIT</Typography>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>{grandTotalRow ? grandTotalRow['Gross Profit'].toFixed(2) : '0.00'}</Typography>
+                            </Box>
+                            
+                            {/* Operating Expenses Block */}
+                            <Box sx={{ flex: 1, bgcolor: '#e8f5e9', p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderRight: '2px solid black' }}>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>OPERATING EXPENSES</Typography>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>{totalOperatingExpenses.toFixed(2)}</Typography>
+                            </Box>
+
+                            {/* Net Profit Block */}
+                            <Box sx={{ flex: 1, bgcolor: '#ffe0b2', p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>NET PROFIT</Typography>
+                                <Typography fontWeight="bold" sx={{ color: 'black', fontSize: '1.2rem' }}>{netProfit.toFixed(2)}</Typography>
+                            </Box>
+                        </Box>
+                    </Box>
+
                 </CardContent>
             </Card>
         </Box>
