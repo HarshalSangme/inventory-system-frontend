@@ -379,7 +379,7 @@ export default function Reports() {
                                     )
                                 }}
                             />
-                            {(currentReport === 'sales' || currentReport === 'purchase' || currentReport === 'profit') && (
+                            {(currentReport === 'sales' || currentReport === 'purchase' || currentReport === 'profit' || currentReport === 'expense') && (
                                 <>
                                     <FormControl size="small" sx={{ minWidth: 150, bgcolor: 'white' }}>
                                         <InputLabel>Quick Filter</InputLabel>
@@ -1098,7 +1098,7 @@ function ProfitLossPreview({ data }: { data: any }) {
             {/* Detailed Category-Wise Data Table (Spreadsheet Mockup Alignment) */}
             <Card sx={{ bgcolor: 'white' }}>
                 <CardContent>
-                    <Box sx={{ bgcolor: '#ffff00', p: 1.5, textAlign: 'center', mb: 0, border: '1px solid black', borderBottom: 'none' }}>
+                    <Box sx={{ bgcolor: '#e3f2fd', p: 1.5, textAlign: 'center', mb: 0, border: '1px solid black', borderBottom: 'none' }}>
                         <Typography variant="h6" fontWeight="bold" sx={{ color: 'black' }}>PROFIT AND LOSS PREVIEW</Typography>
                     </Box>
                     <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid black', borderRadius: 0 }}>
