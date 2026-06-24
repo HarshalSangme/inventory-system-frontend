@@ -1084,11 +1084,20 @@ export default function Products() {
                         }
                         setCategoryError("");
                         try {
-                          await createCategory({ name: newCategoryName, margin_percent: newCategoryMargin });
+                          const created = await createCategory({ name: newCategoryName, margin_percent: newCategoryMargin });
                           setNewCategoryName("");
                           setNewCategoryMargin(40);
                           await loadCategories();
-                        } catch {
+                          if (created && created.id) {
+                            setFormData(prev => ({
+                              ...prev,
+                              category_id: created.id
+                            }));
+                          }
+                          showSnackbar("Category added successfully", "success");
+                        } catch (error: any) {
+                          const msg = error?.response?.data?.detail || "Failed to add category";
+                          showSnackbar(msg, "error");
                           setCategoryError("Failed to add");
                         }
                       }}
@@ -1177,8 +1186,14 @@ export default function Products() {
                           size="small"
                           color="error"
                           onClick={async () => {
-                            await deleteCategory(cat.id);
-                            await loadCategories();
+                            try {
+                              await deleteCategory(cat.id);
+                              await loadCategories();
+                              showSnackbar("Category deleted successfully", "success");
+                            } catch (error: any) {
+                              const msg = error?.response?.data?.detail || "Failed to delete category";
+                              showSnackbar(msg, "error");
+                            }
                           }}
                         >
                           <DeleteIcon fontSize="small" />
