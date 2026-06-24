@@ -32,6 +32,7 @@ import { DataGrid } from '@mui/x-data-grid';
 
 import { getTransactions, type Transaction, getInvoicePdf, getPurchasePdf } from '../services/transactionService';
 import { getPartners, type Partner } from '../services/partnerService';
+import { getCachedData, setCachedData } from '../services/cache';
 
 import CreateTransaction from './CreateTransaction';
 
@@ -41,9 +42,9 @@ interface TransactionsProps {
 
 export default function Transactions({ type }: TransactionsProps) {
     const { role } = useUser();
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [totalTransactions, setTotalTransactions] = useState(0);
-    const [partners, setPartners] = useState<Partner[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>(() => getCachedData(`transactions_${type}`, []));
+    const [totalTransactions, setTotalTransactions] = useState(() => getCachedData(`total_transactions_${type}`, 0));
+    const [partners, setPartners] = useState<Partner[]>(() => getCachedData('partners_all', []));
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
@@ -58,8 +59,15 @@ export default function Transactions({ type }: TransactionsProps) {
         }, 500);
         return () => clearTimeout(timer);
     }, [searchTerm]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => getCachedData(`transactions_${type}`, []).length === 0);
     const [dateFrom, setDateFrom] = useState<string>('');
+    
+    // Sync state when type changes (sales vs purchases)
+    useEffect(() => {
+        setTransactions(getCachedData(`transactions_${type}`, []));
+        setTotalTransactions(getCachedData(`total_transactions_${type}`, 0));
+        setLoading(getCachedData(`transactions_${type}`, []).length === 0);
+    }, [type]);
     const [dateTo, setDateTo] = useState<string>('');
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -102,7 +110,8 @@ export default function Transactions({ type }: TransactionsProps) {
     // Fetch transactions from backend with date filters
     useEffect(() => {
         const loadTransactionsAndPartners = async () => {
-            setLoading(true);
+            const hasCache = getCachedData(`transactions_${type}`, []).length > 0;
+            if (!hasCache) setLoading(true);
             try {
                 const [txData, partnerData] = await Promise.all([
                     getTransactions(page * rowsPerPage, rowsPerPage, type, dateFrom || undefined, dateTo || undefined, debouncedSearch || undefined),
@@ -111,6 +120,9 @@ export default function Transactions({ type }: TransactionsProps) {
                 setTransactions(txData.data);
                 setTotalTransactions(txData.total);
                 setPartners(partnerData.data);
+                setCachedData(`transactions_${type}`, txData.data);
+                setCachedData(`total_transactions_${type}`, txData.total);
+                setCachedData('partners_all', partnerData.data);
             } catch (error) {
                 console.error('Failed to load transactions or partners', error);
             } finally {
@@ -130,6 +142,9 @@ export default function Transactions({ type }: TransactionsProps) {
             setTransactions(txData.data);
             setTotalTransactions(txData.total);
             setPartners(partnerData.data);
+            setCachedData(`transactions_${type}`, txData.data);
+            setCachedData(`total_transactions_${type}`, txData.total);
+            setCachedData('partners_all', partnerData.data);
         } catch (error) {
             console.error('Failed to load transactions or partners', error);
         }

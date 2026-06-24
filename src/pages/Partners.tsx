@@ -24,6 +24,7 @@ import {
 import { DataGrid } from '@mui/x-data-grid';
 import { getPartners, type Partner, createPartner, updatePartner, deletePartner } from '../services/partnerService';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { getCachedData, setCachedData } from '../services/cache';
 
 type PartnersProps = {
     type: 'customer' | 'vendor';
@@ -32,10 +33,10 @@ type PartnersProps = {
 const Partners: React.FC<PartnersProps> = ({ type }) => {
     const { role } = useUser();
     const { showSnackbar } = useSnackbar();
-    const [partners, setPartners] = useState<Partner[]>([]);
-    const [totalPartners, setTotalPartners] = useState(0);
+    const [partners, setPartners] = useState<Partner[]>(() => getCachedData(`partners_${type}`, []));
+    const [totalPartners, setTotalPartners] = useState(() => getCachedData(`total_partners_${type}`, 0));
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(() => getCachedData(`partners_${type}`, []).length === 0);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
     const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
@@ -68,7 +69,9 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
     });
 
     const loadPartners = async (showLoader = true) => {
-        if (showLoader) setLoading(true);
+        const hasCache = getCachedData(`partners_${type}`, []).length > 0;
+        const actualShowLoader = showLoader && !hasCache;
+        if (actualShowLoader) setLoading(true);
         try {
             const res = await getPartners(
                 page * rowsPerPage,
@@ -82,14 +85,23 @@ const Partners: React.FC<PartnersProps> = ({ type }) => {
             );
             setPartners(res.data);
             setTotalPartners(res.total);
+            setCachedData(`partners_${type}`, res.data);
+            setCachedData(`total_partners_${type}`, res.total);
         } catch (error: any) {
             console.error('Failed to load partners', error);
             const msg = error?.response?.data?.detail || 'Failed to load partners';
             showSnackbar(msg, 'error');
         } finally {
-            if (showLoader) setLoading(false);
+            if (actualShowLoader) setLoading(false);
         }
     };
+
+    // Sync state when partner type changes (customer vs vendor)
+    useEffect(() => {
+        setPartners(getCachedData(`partners_${type}`, []));
+        setTotalPartners(getCachedData(`total_partners_${type}`, 0));
+        setLoading(getCachedData(`partners_${type}`, []).length === 0);
+    }, [type]);
 
     useEffect(() => {
         loadPartners();

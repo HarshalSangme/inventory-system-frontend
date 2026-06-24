@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getDashboardStats, type DashboardStats } from '../services/dashboardService';
+import { getCachedData, setCachedData } from '../services/cache';
 import { BarChart3 } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import Card from '@mui/material/Card';
@@ -32,14 +33,17 @@ const StatCard = ({ title, value, subtext, icon: Icon, color, trend }: { title: 
 );
 
 export default function Dashboard() {
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats | null>(() => getCachedData('dashboard_stats', null));
+    const [loading, setLoading] = useState(() => getCachedData('dashboard_stats', null) === null);
 
     useEffect(() => {
         const loadStats = async () => {
+            const hasCache = getCachedData('dashboard_stats', null) !== null;
+            if (!hasCache) setLoading(true);
             try {
                 const data = await getDashboardStats();
                 setStats(data);
+                setCachedData('dashboard_stats', data);
             } catch (error) {
                 console.error('Failed to load dashboard stats', error);
             } finally {

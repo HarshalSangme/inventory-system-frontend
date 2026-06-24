@@ -32,6 +32,7 @@ declare global {
 }
 import { useUser } from "../context/UserContext";
 import { useSnackbar } from "../context/SnackbarContext";
+import { getCachedData, setCachedData } from "../services/cache";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -66,10 +67,10 @@ import { DataGrid } from '@mui/x-data-grid';
 export default function Products() {
   const { role } = useUser();
   const { showSnackbar } = useSnackbar();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [totalProducts, setTotalProducts] = useState(0);
+  const [products, setProducts] = useState<Product[]>(() => getCachedData("products", []));
+  const [totalProducts, setTotalProducts] = useState(() => getCachedData("products_total", 0));
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => getCachedData("products", []).length === 0);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "">("");
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -116,7 +117,7 @@ export default function Products() {
   const [filterSku, setFilterSku] = useState("");
 
   // Category State
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<Category[]>(() => getCachedData("categories", []));
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -191,11 +192,14 @@ export default function Products() {
   }, [page, rowsPerPage, debouncedSearch, categoryFilter, filterName, filterSku]);
 
   const loadProducts = async () => {
+    const hasCache = getCachedData("products", []).length > 0;
     try {
-      setLoading(true);
+      if (!hasCache) setLoading(true);
       const res = await getProducts(page * rowsPerPage, rowsPerPage, debouncedSearch || undefined, filterName || undefined, filterSku || undefined, categoryFilter || undefined);
       setProducts(res.data);
       setTotalProducts(res.total);
+      setCachedData("products", res.data);
+      setCachedData("products_total", res.total);
     } catch (error: any) {
       console.error("Failed to load products", error);
       const msg = error?.response?.data?.detail || "Failed to load products";
@@ -206,10 +210,12 @@ export default function Products() {
   };
 
   const loadCategories = async () => {
-    setCategoryLoading(true);
+    const hasCache = getCachedData("categories", []).length > 0;
+    if (!hasCache) setCategoryLoading(true);
     try {
       const res = await getCategories();
       setCategories(res.data);
+      setCachedData("categories", res.data);
     } catch (error: any) {
       const msg = error?.response?.data?.detail || "Failed to load categories";
       showSnackbar(msg, "error");
